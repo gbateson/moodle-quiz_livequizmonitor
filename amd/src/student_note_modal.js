@@ -33,7 +33,7 @@ import Templates from 'core/templates';
  *
  * @returns {Promise<object>}
  */
-const loadStrings = async () => {
+const loadStrings = async() => {
     const keys = [
         {key: 'notes:modaltitle', component: 'quiz_livequizmonitor'},
         {key: 'notes:modalbody', component: 'quiz_livequizmonitor'},
@@ -60,7 +60,7 @@ const loadStrings = async () => {
  * @param {object} config Modal configuration
  * @returns {Promise<object>}
  */
-const fetchNote = async (config) => {
+const fetchNote = async(config) => {
     return Ajax.call([{
         methodname: 'quiz_livequizmonitor_get_student_note',
         args: {
@@ -81,7 +81,7 @@ const fetchNote = async (config) => {
  * @param {string} config.studentname Student display name
  * @returns {Promise<object|null>}
  */
-export const showStudentNoteModal = async (config) => {
+export const showStudentNoteModal = async(config) => {
     const strings = await loadStrings();
     let noteData;
 
@@ -126,7 +126,7 @@ export const showStudentNoteModal = async (config) => {
     let finished = false;
 
     return new Promise((resolve) => {
-        modal.getRoot().on(ModalEvents.save, async () => {
+        modal.getRoot().on(ModalEvents.save, async() => {
             modal.getRoot().find('[data-action="save"]').prop('disabled', true);
             const content = textarea ? textarea.value : '';
 

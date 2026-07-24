@@ -37,7 +37,7 @@ import {getString} from 'core/str';
  * @param {string} config.studentname Student display name
  * @returns {Promise<object|null>}
  */
-export const showUnblockModal = async (config) => {
+export const showUnblockModal = async(config) => {
     const [modaltitle, modalbody, confirm, success] = await Promise.all([
         getString('onesession:unblockmodaltitle', 'quiz_livequizmonitor', config.studentname ?? ''),
         getString('onesession:unblockmodalbody', 'quiz_livequizmonitor'),
@@ -57,7 +57,7 @@ export const showUnblockModal = async (config) => {
     let finished = false;
 
     return new Promise((resolve) => {
-        modal.getRoot().on(ModalEvents.save, async () => {
+        modal.getRoot().on(ModalEvents.save, async() => {
             modal.getRoot().find('[data-action="save"]').prop('disabled', true);
 
             try {
