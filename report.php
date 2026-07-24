@@ -45,8 +45,6 @@ class quiz_livequizmonitor_report extends mod_quiz\local\reports\report_base {
 
         $groupid = groups_get_activity_group($cm, true) ?: 0;
 
-        $PAGE->requires->css('/mod/quiz/report/livequizmonitor/styles.css?v=' . get_config('quiz_livequizmonitor', 'version'));
-
         $this->print_header_and_tabs($cm, $course, $quiz, 'livequizmonitor');
 
         $state = monitor_manager::get_state($course, $cm, $quiz, $groupid);
