@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <XMLDB PATH="mod/quiz/report/livequizmonitor/db" VERSION="20250630" COMMENT="XMLDB file for quiz_livequizmonitor"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:noNamespaceSchemaLocation="../../../../lib/xmldb/xmldb.xsd"
+    xsi:noNamespaceSchemaLocation="../../../../../lib/xmldb/xmldb.xsd"
 >
   <TABLES>
     <TABLE NAME="quiz_livequizmonitor_notes" COMMENT="Supervision notes per student per quiz">

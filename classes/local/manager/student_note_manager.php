@@ -27,7 +27,6 @@ namespace quiz_livequizmonitor\local\manager;
 use cm_info;
 use context_module;
 use moodle_exception;
-use quiz_livequizmonitor\local\entity\student_note;
 use stdClass;
 
 /**
@@ -85,21 +84,15 @@ class student_note_manager {
      *
      * @param int $quizid Quiz instance id.
      * @param int $userid Student user id.
-     * @return student_note|null
+     * @return stdClass|false
      */
-    public static function get_note(int $quizid, int $userid): ?student_note {
+    public static function get_note(int $quizid, int $userid): stdClass|false {
         global $DB;
 
-        $record = $DB->get_record('quiz_livequizmonitor_notes', [
+        return $DB->get_record('quiz_livequizmonitor_notes', [
             'quizid' => $quizid,
             'userid' => $userid,
         ]);
-
-        if (!$record) {
-            return null;
-        }
-
-        return student_note::from_record($record);
     }
 
     /**

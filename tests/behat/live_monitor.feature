@@ -1,4 +1,4 @@
-@quiz_livequizmonitor @mod @quiz @report
+@quiz_livequizmonitor @mod @mod_quiz @quiz @report
 Feature: Live quiz monitor report
   In order to monitor quiz participation live
   As a teacher
@@ -34,7 +34,7 @@ Feature: Live quiz monitor report
 
   Scenario: Teacher opens Live Monitor report
     Given I am on the live monitor report for "Quiz 1"
-    Then I should see "Live Monitor"
+    Then I should see "Live monitor"
     And I should see "Sam Student"
     And I should see "Not started"
     And I should see "In progress"
