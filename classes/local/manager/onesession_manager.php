@@ -24,8 +24,6 @@
 
 namespace quiz_livequizmonitor\local\manager;
 
-defined('MOODLE_INTERNAL') || die();
-
 use context_module;
 use core_plugin_manager;
 use mod_quiz\quiz_attempt;

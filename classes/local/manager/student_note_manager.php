@@ -24,8 +24,6 @@
 
 namespace quiz_livequizmonitor\local\manager;
 
-defined('MOODLE_INTERNAL') || die();
-
 use cm_info;
 use context_module;
 use moodle_exception;

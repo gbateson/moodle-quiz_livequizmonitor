@@ -692,6 +692,7 @@ class MonitorComponent extends BaseComponent {
         }
     }
 
+    /* eslint max-depth: ["error", 5] */
     /**
      * Sync tbody rows with reactive student state (insert, remove, reorder, patch).
      *
@@ -1173,7 +1174,7 @@ export const init = (selector) => {
     const cmid = root.dataset.cmid;
     const groupid = root.dataset.groupid || 0;
 
-    return new MonitorComponent({
+    new MonitorComponent({
         element: root,
         reactive,
         cmid,

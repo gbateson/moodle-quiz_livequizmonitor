@@ -26,7 +26,7 @@ namespace quiz_livequizmonitor\local\manager;
 
 defined('MOODLE_INTERNAL') || die();
 
-require_once(__DIR__ . '/../traits/group_scope_test_trait.php');
+require_once(__DIR__ . '/../../traits/group_scope_test_trait.php');
 
 use advanced_testcase;
 use context_module;

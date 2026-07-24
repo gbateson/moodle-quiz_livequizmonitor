@@ -52,7 +52,7 @@ const formatDeadline = (timestamp) => {
  *
  * @returns {Promise<object>}
  */
-const loadStrings = async () => {
+const loadStrings = async() => {
     const keys = [
         {key: 'extend:modaltitle', component: 'quiz_livequizmonitor'},
         {key: 'extend:addtime', component: 'quiz_livequizmonitor'},
@@ -100,7 +100,7 @@ const loadStrings = async () => {
  * @param {number} minutes Selected minutes
  * @returns {Promise<object>}
  */
-const buildBodyContext = async (config, strings, minutes) => {
+const buildBodyContext = async(config, strings, minutes) => {
     const isBulk = config.mode === 'bulk';
     const description = isBulk
         ? await getString('extend:modalbodybulk', 'quiz_livequizmonitor', {count: config.inprogresscount ?? 0})
@@ -138,7 +138,7 @@ const buildBodyContext = async (config, strings, minutes) => {
  * @param {number} minutes Selected minutes
  * @param {object} modal Modal instance
  */
-const updatePreview = async (root, config, strings, minutes, modal) => {
+const updatePreview = async(root, config, strings, minutes, modal) => {
     const context = await buildBodyContext(config, strings, minutes);
     const previewLabel = root.querySelector('[data-region="extend-preview-label"]');
     const previewValue = root.querySelector('[data-region="extend-preview"]');
@@ -172,7 +172,7 @@ const updatePreview = async (root, config, strings, minutes, modal) => {
  * @param {number} [config.inprogresscount] In-progress count for bulk mode
  * @returns {Promise<object|null>} API response or null when cancelled
  */
-export const showExtendModal = async (config) => {
+export const showExtendModal = async(config) => {
     const strings = await loadStrings();
     let minutes = DEFAULT_MINUTES;
     const bodyContext = await buildBodyContext(config, strings, minutes);
@@ -208,7 +208,7 @@ export const showExtendModal = async (config) => {
     let finished = false;
 
     return new Promise((resolve) => {
-        modal.getRoot().on(ModalEvents.save, async () => {
+        modal.getRoot().on(ModalEvents.save, async() => {
             modal.getRoot().find('[data-action="save"]').prop('disabled', true);
             try {
                 const args = {
