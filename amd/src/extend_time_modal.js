@@ -22,7 +22,7 @@
  */
 
 import Ajax from 'core/ajax';
-import ModalFactory from 'core/modal_factory';
+import ModalSaveCancel from 'core/modal_save_cancel';
 import ModalEvents from 'core/modal_events';
 import Notification from 'core/notification';
 import {getString} from 'core/str';
@@ -182,8 +182,7 @@ export const showExtendModal = async(config) => {
         bodyContext
     );
 
-    const modal = await ModalFactory.create({
-        type: ModalFactory.types.SAVE_CANCEL,
+    const modal = await ModalSaveCancel.create({
         title: strings.modaltitle,
         body: html,
     });
