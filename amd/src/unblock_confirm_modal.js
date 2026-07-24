@@ -22,7 +22,7 @@
  */
 
 import Ajax from 'core/ajax';
-import ModalFactory from 'core/modal_factory';
+import ModalSaveCancel from 'core/modal_save_cancel';
 import ModalEvents from 'core/modal_events';
 import Notification from 'core/notification';
 import {getString} from 'core/str';
@@ -45,8 +45,7 @@ export const showUnblockModal = async(config) => {
         getString('onesession:unblocksuccess', 'quiz_livequizmonitor'),
     ]);
 
-    const modal = await ModalFactory.create({
-        type: ModalFactory.types.SAVE_CANCEL,
+    const modal = await ModalSaveCancel.create({
         title: modaltitle,
         body: `<p class="mb-0">${modalbody}</p>`,
     });
