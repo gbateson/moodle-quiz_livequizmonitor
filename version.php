@@ -24,8 +24,8 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version   = 2025070113;
-$plugin->requires  = 2024100700;
+$plugin->version   = 2026072500;
+$plugin->requires  = 2025041400; // Moodle 5.0.
 $plugin->component = 'quiz_livequizmonitor';
 $plugin->maturity  = MATURITY_ALPHA;
 $plugin->release   = 'v0.1.4';
