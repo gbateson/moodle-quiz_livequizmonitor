@@ -24,8 +24,6 @@
 
 namespace quiz_livequizmonitor\local\entity;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Maps to {quiz_livequizmonitor_notes}.
  */

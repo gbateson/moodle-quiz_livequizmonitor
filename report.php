@@ -22,8 +22,6 @@
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
 use quiz_livequizmonitor\local\manager\monitor_manager;
 use quiz_livequizmonitor\output\monitor_renderer;
 

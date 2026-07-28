@@ -24,8 +24,6 @@
 
 namespace quiz_livequizmonitor\output;
 
-defined('MOODLE_INTERNAL') || die();
-
 use plugin_renderer_base;
 use quiz_livequizmonitor\local\manager\monitor_manager;
 use stdClass;
