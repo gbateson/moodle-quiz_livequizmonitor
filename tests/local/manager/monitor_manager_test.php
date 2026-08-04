@@ -97,9 +97,16 @@ final class monitor_manager_test extends advanced_testcase {
         $attemptobj = quiz_attempt::create($attemptid);
         $qa = $attemptobj->get_question_attempt(1);
         $fieldname = $qa->get_qt_field_name('answer');
-        $attemptobj->process_submitted_actions(time(), false, [$fieldname => $answer]);
+        $now = time();
+        $attemptobj->process_submitted_actions($now, false, [$fieldname => $answer]);
         if ($finish) {
-            $attemptobj->process_finish(time(), false);
+            // Method process_finish() deprecated in Moodle 5.0 onwards (MDL-68806).
+            if (method_exists($attemptobj, 'process_submit')) {
+                $attemptobj->process_submit($now, false);
+                $attemptobj->process_grade_submission($now);
+            } else {
+                $attemptobj->process_finish($now, false);
+            }
         }
     }
 
