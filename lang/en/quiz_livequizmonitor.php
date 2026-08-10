@@ -26,6 +26,11 @@ defined('MOODLE_INTERNAL') || die();
 
 $string['emptycohort'] = 'No eligible students were found for this quiz.';
 $string['error:groupnotvisible'] = 'You do not have permission to view that group in this monitor.';
+$string['error:maxdurationopenclosetime'] = 'For this setting, you must specify both an open time and a close time.';
+$string['error:maxdurationtimelimit'] = 'For this setting, you must specify a time limit.';
+$string['error:missingtimeclose'] = 'Please specify a date and time to close the quiz.';
+$string['error:missingtimelimit'] = 'Please specify a time limit.';
+$string['error:missingtimeopen'] = 'Please specify a date and time to open the quiz.';
 $string['error:usernotvisible'] = 'The selected student is not visible in this monitor view.';
 $string['extend:addtime'] = 'Add time';
 $string['extend:bulklabel'] = 'Extend time';
@@ -53,11 +58,16 @@ $string['liveindicator'] = 'Live';
 $string['livequizmonitor'] = 'Live monitor';
 $string['livequizmonitor:view'] = 'View the live quiz monitor report';
 $string['livequizmonitorreport'] = 'Live monitor';
+$string['maxduration'] = 'Maximum duration';
+$string['maxduration_help'] = 'This setting specifies how to determine the maximum allowable duration of an attempt.
+
+- By default, it will be set to the quiz time limit.
+- If no time limit is defined, it will be calculated as the difference between the quiz open and close times.
+- You can also explicitly choose to use either the quiz time limit or the difference between the open and close times.';
 $string['message:timeextendedbody'] = 'Your teacher added {$a->minutes} minutes to your attempt for the quiz "{$a->quizname}".';
 $string['message:timeextendedsmall'] = '+{$a} min added to your quiz attempt';
 $string['message:timeextendedsubject'] = 'Extra time granted for {$a}';
 $string['messageprovider:timeextended'] = 'Quiz time extended notification';
-$string['missinguserid'] = 'A student must be selected for individual extend.';
 $string['noattempttoextend'] = 'No in-progress attempt to extend for {$a}.';
 $string['noextendablelimit'] = 'Cannot extend time for {$a} — no time limit applies.';
 $string['notes:addlabel'] = 'Add note';
@@ -102,3 +112,5 @@ $string['table:status'] = 'Status';
 $string['table:student'] = 'Student';
 $string['table:timeremaining'] = 'Time left';
 $string['timeup'] = 'Time up';
+$string['useopenclosetimes'] = 'Use open/close times';
+$string['usetimelimit'] = 'Use time limit';
