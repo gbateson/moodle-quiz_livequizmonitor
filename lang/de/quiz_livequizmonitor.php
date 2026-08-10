@@ -53,6 +53,10 @@ $string['liveindicator'] = 'Live';
 $string['livequizmonitor'] = 'Live-Monitor';
 $string['livequizmonitor:view'] = 'Live-Quiz-Monitor-Bericht anzeigen';
 $string['livequizmonitorreport'] = 'Live-Monitor';
+$string['maxduration'] = 'Maximale Dauer';
+$string['maxduration_help'] = 'Diese Einstellung legt fest, wie die maximal zulässige Dauer eines Versuchs bestimmt wird.
+
+Standardmäßig wird sie auf das Zeitlimit des Quiz gesetzt. Wenn kein Zeitlimit festgelegt ist, wird sie als Differenz zwischen dem Öffnungs- und dem Schließzeitpunkt des Quiz berechnet. Sie können auch ausdrücklich festlegen, dass entweder das Zeitlimit des Quiz oder die Differenz zwischen dem Öffnungs- und dem Schließzeitpunkt verwendet wird.';
 $string['message:timeextendedbody'] = 'Ihre Lehrperson hat {$a->minutes} Minuten zu Ihrem Versuch für das Quiz „{$a->quizname}“ hinzugefügt.';
 $string['message:timeextendedsmall'] = '+{$a} Min. zu Ihrem Quiz-Versuch hinzugefügt';
 $string['message:timeextendedsubject'] = 'Zusätzliche Zeit für {$a}';
@@ -102,3 +106,5 @@ $string['table:status'] = 'Status';
 $string['table:student'] = 'Teilnehmende';
 $string['table:timeremaining'] = 'Verbleibende Zeit';
 $string['timeup'] = 'Zeit abgelaufen';
+$string['usetimelimit'] = 'Zeitlimit verwenden';
+$string['useopenclosetimes'] = 'Öffnungs-/Schließzeiten verwenden';

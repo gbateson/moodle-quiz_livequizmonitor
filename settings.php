@@ -15,17 +15,25 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Version information for the live quiz monitor report.
+ * Settings for the Live Quiz Monitor report
  *
  * @package   quiz_livequizmonitor
- * @copyright 2026 SSYSTEMS
+ * @copyright 2026 onwards University College London {@link https://ucl.ac.uk}
+ * @author    Gordon Bateson <g.bateson@ucl.ac.uk>
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
+defined('MOODLE_INTERNAL') || die;
 
-$plugin->version   = 2026072501;
-$plugin->requires  = 2025041400; // Moodle 5.0.
-$plugin->component = 'quiz_livequizmonitor';
-$plugin->maturity  = MATURITY_ALPHA;
-$plugin->release   = 'v0.1.4';
+if ($ADMIN->fulltree) {
+    $plugin = 'quiz_livequizmonitor';
+    $name = 'maxduration';
+    $label = get_string($name, $plugin);
+    $help = get_string("{$name}_help", $plugin);
+    $options = [
+        0 => get_string('default'),
+        1 => get_string('usetimelimit', $plugin),
+        2 => get_string('useopenclosetimes', $plugin),
+    ];
+    $settings->add(new admin_setting_configselect("$plugin/$name", $label, $help, 0, $options));
+}
