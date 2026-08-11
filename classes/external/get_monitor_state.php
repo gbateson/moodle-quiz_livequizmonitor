@@ -69,6 +69,13 @@ class get_monitor_state extends external_api {
         $quiz = $DB->get_record('quiz', ['id' => $cm->instance], '*', MUST_EXIST);
         $context = context_module::instance($cm->id);
 
+        // Get additional monitor settings for this quiz.
+        $quiz->maxduration = (int) $DB->get_field(
+            'quiz_livequizmonitor',
+            'maxduration',
+            ['quizid' => $cm->instance]
+        );
+
         self::validate_context($context);
         require_capability('quiz/livequizmonitor:view', $context);
 

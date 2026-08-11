@@ -341,6 +341,13 @@ class monitor_manager {
                     if ($endtime !== false) {
                         $attemptendat = (int) $endtime;
                     }
+                    // If there is no timelimit, and timeclose is more than an hour away,
+                    // the timeremaining is set to false, but so we override that.
+                    if ($timeremaining === false) {
+                        if ($endtime > 0 && $endtime > $now) {
+                            $timeremaining = ($endtime - $now);
+                        }
+                    }
                     if ($timeremaining !== false && $timeremaining >= 0) {
                         $timeremainingdisplay = self::format_duration((int) $timeremaining);
                     } else if ($timeremaining !== false && $timeremaining < 0) {
