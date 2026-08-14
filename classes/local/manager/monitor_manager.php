@@ -165,6 +165,7 @@ class monitor_manager {
         $inprogresscount = $summary->inprogress->count;
 
         $state = (object) [
+            'courseid' => (int) $course->id,
             'quizid' => (int) $quiz->id,
             'cmid' => (int) $cm->id,
             'quizname' => format_string($quiz->name, true, ['context' => $context]),
@@ -367,6 +368,7 @@ class monitor_manager {
         $canextend = extend_time_manager::user_can_extend($context);
 
         return (object) [
+            'courseid' => (int) $quiz->course,
             'userid' => (int) $user->id,
             'fullname' => fullname($user),
             'email' => $showemail ? $user->email : '',

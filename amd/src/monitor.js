@@ -30,6 +30,7 @@ import {createMonitorReactive, formatDuration} from 'quiz_livequizmonitor/reacti
 import {showExtendModal} from 'quiz_livequizmonitor/extend_time_modal';
 import {showStudentNoteModal} from 'quiz_livequizmonitor/student_note_modal';
 import {showUnblockModal} from 'quiz_livequizmonitor/unblock_confirm_modal';
+import {showAttemptsModal} from 'quiz_livequizmonitor/show_attempts_modal';
 
 /** Fixed background refresh interval in milliseconds. */
 const POLL_INTERVAL_MS = 5000;
@@ -73,6 +74,7 @@ class MonitorComponent extends BaseComponent {
         const root = descriptor.element ?? this.element;
         this.cmid = parseInt(descriptor.cmid ?? root.dataset.cmid, 10);
         this.groupid = parseInt(descriptor.groupid ?? root.dataset.groupid ?? 0, 10);
+        this.courseId = parseInt(descriptor.courseid ?? root.dataset.courseid ?? 1, 10);
         this.showEmailColumn = root.dataset.showEmail === '1';
         this.showActionsColumn = root.dataset.showActions === '1';
         this.lastUpdatedPrefix = root.dataset.lastupdatedPrefix ?? '';
@@ -85,6 +87,7 @@ class MonitorComponent extends BaseComponent {
         this.canunblock = root.dataset.canunblock === '1';
         this.unblockRowLabel = root.dataset.unblockLabel ?? 'Unblock user';
         this.blockedFlagLabel = root.dataset.blockedFlagLabel ?? 'Blocked';
+        this.showAttemptsLabel = root.dataset.showAttemptsLabel ?? 'Show_attempts';
     }
 
     /**
@@ -204,6 +207,13 @@ class MonitorComponent extends BaseComponent {
                 return;
             }
             this.openUnblockModal(unblockLink);
+        }
+
+        const showAttemptsLink = event.target.closest('[data-action="showattempts"]');
+        if (showAttemptsLink && this.element.contains(showAttemptsLink)) {
+            event.preventDefault();
+            this.openShowAttemptsModal(showAttemptsLink);
+            return;
         }
     }
 
@@ -334,6 +344,20 @@ class MonitorComponent extends BaseComponent {
         }
         const count = this.getState()?.summary?.inprogress?.count ?? 0;
         button.disabled = count === 0;
+    }
+
+    /**
+     * Open a modal showing student log preview with an option to open full Moodle logs.
+     *
+     * @param {HTMLElement} trigger Action menu link element
+     */
+    async openShowAttemptsModal(trigger) {
+        await showAttemptsModal({
+            cmid: this.cmid,
+            userid: parseInt(trigger.dataset.userid, 10),
+            courseid: parseInt(trigger.dataset.courseid, 10),
+            studentname: trigger.dataset.studentname ?? '',
+        });
     }
 
     /**
@@ -596,6 +620,7 @@ class MonitorComponent extends BaseComponent {
     buildStudentRowContext(student) {
         const canextend = !!(student.canextend ?? this.canextend);
         return {
+            courseid: student.courseid ?? this.courseId,
             userid: student.userid ?? student.id,
             fullname: student.fullname ?? '',
             email: student.email ?? '',
@@ -621,6 +646,7 @@ class MonitorComponent extends BaseComponent {
             extendrowlabel: this.extendRowLabel,
             unblocklabel: this.unblockRowLabel,
             blockedflaglabel: this.blockedFlagLabel,
+            showattemptslabel: this.showAttemptsLabel,
             actionsmenulabel: this.actionsMenuLabel,
         };
     }
@@ -908,6 +934,7 @@ class MonitorComponent extends BaseComponent {
      * @returns {string}
      */
     buildRowActionMenuHtml(student) {
+        const courseid = student.courseid ?? this.courseId;
         const userid = student.userid ?? student.id;
         const attemptendat = student.attemptendat ?? '';
         const attemptid = student.attemptid ?? '';
@@ -916,6 +943,7 @@ class MonitorComponent extends BaseComponent {
         const actionslabel = this.escapeHtml(this.actionsMenuLabel);
         const unblocklabel = this.escapeHtml(this.unblockRowLabel);
         const blockedflaglabel = this.escapeHtml(this.blockedFlagLabel);
+        const logslabel = this.escapeHtml(this.showAttemptsLabel);
         const notelabel = this.escapeHtml(student.hasnote ? this.noteEditLabel : this.noteAddLabel);
         const hasnote = student.hasnote ? '1' : '0';
         const showextend = !!(student.canextend ?? this.canextend);
@@ -956,6 +984,18 @@ class MonitorComponent extends BaseComponent {
             ? `<i class="fa-solid fa-flag livequizmonitor-blocked-flag" title="${blockedflaglabel}" aria-hidden="true"></i>`
             : '';
 
+        const logsItem = `
+                    <a href="#"
+                    class="dropdown-item menu-action"
+                    role="menuitem"
+                    data-action="showattempts"
+                    data-userid="${userid}"
+                    data-courseid="${courseid}"
+                    data-studentname="${fullname}">
+                        <i class="fa-solid fa-clipboard-list" aria-hidden="true"></i>
+                        <span class="menu-action-text">${logslabel}</span>
+                    </a>`;
+
         return `
             <div class="livequizmonitor-actions-inner">
                 <div class="dropdown livequizmonitor-row-actions" data-region="row-actions">
@@ -978,7 +1018,7 @@ class MonitorComponent extends BaseComponent {
                            data-hasnote="${hasnote}">
                             <i class="fa-solid fa-book" aria-hidden="true"></i>
                             <span class="menu-action-text">${notelabel}</span>
-                        </a>${extendItem}${unblockItem}
+                        </a>${extendItem}${unblockItem}${logsItem}
                     </div>
                 </div>${flagHtml}
             </div>
