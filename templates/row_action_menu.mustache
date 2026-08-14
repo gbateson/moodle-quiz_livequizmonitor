@@ -67,5 +67,17 @@
             <span class="menu-action-text">{{unblocklabel}}</span>
         </a>
         {{/onesessionactive}}
+        {{#canviewlogs}}
+        <a href="#"
+           class="dropdown-item menu-action"
+           role="menuitem"
+           data-action="showlogs"
+           data-userid="{{userid}}"
+           data-courseid="{{courseid}}"
+           data-studentname="{{fullname}}">
+            <i class="fa-solid fa-clipboard-list" aria-hidden="true"></i>
+            <span class="menu-action-text">{{showlogslabel}}</span>
+        </a>
+        {{/canviewlogs}}
     </div>
 </div>

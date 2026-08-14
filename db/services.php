@@ -75,4 +75,13 @@ $functions = [
         'loginrequired' => true,
         'capabilities' => 'quiz/livequizmonitor:view',
     ],
+    'quiz_livequizmonitor_get_student_logs' => [
+        'classname'   => 'quiz_livequizmonitor\external\get_student_logs',
+        'methodname'  => 'execute',
+        'description' => 'Retrieves log entries for a student for today',
+        'type'        => 'read',
+        'ajax'        => true,
+        'loginrequired' => true,
+        'capabilities' => 'quiz/livequizmonitor:view',
+    ],
 ];

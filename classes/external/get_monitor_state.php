@@ -137,6 +137,7 @@ class get_monitor_state extends external_api {
             'inprogresscount' => new external_value(PARAM_INT, 'In-progress student count'),
             'onesessionactive' => new external_value(PARAM_BOOL, 'Onesession rule active for quiz'),
             'canunblock' => new external_value(PARAM_BOOL, 'Viewer may unblock attempts'),
+            'canviewlogs' => new external_value(PARAM_BOOL, 'Viewer may view student logs'),
             'summary' => new external_single_structure([
                 'notstarted' => $statuscount,
                 'inprogress' => $statuscount,
@@ -200,6 +201,7 @@ class get_monitor_state extends external_api {
             'inprogresscount' => (int) ($state->inprogresscount ?? $summary->inprogress->count),
             'onesessionactive' => (bool) ($state->onesessionactive ?? false),
             'canunblock' => (bool) ($state->canunblock ?? false),
+            'canviewlogs' => (bool) ($state->canviewlogs ?? false),
             'summary' => [
                 'notstarted' => (array) $summary->notstarted,
                 'inprogress' => (array) $summary->inprogress,
