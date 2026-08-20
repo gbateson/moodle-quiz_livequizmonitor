@@ -30,7 +30,6 @@ import {createMonitorReactive, formatDuration} from 'quiz_livequizmonitor/reacti
 import {showExtendModal} from 'quiz_livequizmonitor/extend_time_modal';
 import {showStudentNoteModal} from 'quiz_livequizmonitor/student_note_modal';
 import {showUnblockModal} from 'quiz_livequizmonitor/unblock_confirm_modal';
-import {showLogsModal} from 'quiz_livequizmonitor/show_logs_modal';
 
 /** Fixed background refresh interval in milliseconds. */
 const POLL_INTERVAL_MS = 5000;
@@ -72,7 +71,7 @@ class MonitorComponent extends BaseComponent {
         this.syncQueued = false;
         this.hasReceivedPoll = false;
         const root = descriptor.element ?? this.element;
-        this.cmid = parseInt(descriptor.cmid ?? root.dataset.cmid, 10);
+        this.cmid = parseInt(descriptor.cmid ?? root.dataset.cmid ?? 0, 10);
         this.groupid = parseInt(descriptor.groupid ?? root.dataset.groupid ?? 0, 10);
         this.courseId = parseInt(descriptor.courseid ?? root.dataset.courseid ?? 1, 10);
         this.showEmailColumn = root.dataset.showEmail === '1';
@@ -209,13 +208,6 @@ class MonitorComponent extends BaseComponent {
             }
             this.openUnblockModal(unblockLink);
         }
-
-        const showLogsLink = event.target.closest('[data-action="showlogs"]');
-        if (showLogsLink && this.element.contains(showLogsLink)) {
-            event.preventDefault();
-            this.openShowLogsModal(showLogsLink);
-            return;
-        }
     }
 
     /**
@@ -345,20 +337,6 @@ class MonitorComponent extends BaseComponent {
         }
         const count = this.getState()?.summary?.inprogress?.count ?? 0;
         button.disabled = count === 0;
-    }
-
-    /**
-     * Open a modal showing student log preview with an option to open full Moodle logs.
-     *
-     * @param {HTMLElement} trigger Action menu link element
-     */
-    async openShowLogsModal(trigger) {
-        await showLogsModal({
-            cmid: this.cmid,
-            userid: parseInt(trigger.dataset.userid, 10),
-            courseid: parseInt(trigger.dataset.courseid, 10),
-            studentname: trigger.dataset.studentname ?? '',
-        });
     }
 
     /**
@@ -622,6 +600,7 @@ class MonitorComponent extends BaseComponent {
         const canextend = !!(student.canextend ?? this.canextend);
         return {
             courseid: student.courseid ?? this.courseId,
+            cmid: student.cmid ?? this.cmid,
             userid: student.userid ?? student.id,
             fullname: student.fullname ?? '',
             email: student.email ?? '',
@@ -936,7 +915,6 @@ class MonitorComponent extends BaseComponent {
      * @returns {string}
      */
     buildRowActionMenuHtml(student) {
-        const courseid = student.courseid ?? this.courseId;
         const userid = student.userid ?? student.id;
         const attemptendat = student.attemptendat ?? '';
         const attemptid = student.attemptid ?? '';
@@ -986,16 +964,24 @@ class MonitorComponent extends BaseComponent {
             ? `<i class="fa-solid fa-flag livequizmonitor-blocked-flag" title="${blockedflaglabel}" aria-hidden="true"></i>`
             : '';
 
+        const logsParams = new URLSearchParams({
+            chooselog: 1,
+            id: this.courseid,
+            user: userid,
+            modid: this.cmid,
+            showusers: 0,
+            showcourses: 0,
+        });
+
         const logsItem = this.canviewlogs ? `
-                        <a href="#"
-                            class="dropdown-item menu-action"
-                            role="menuitem"
-                            data-action="showlogs"
-                            data-userid="${userid}"
-                            data-courseid="${courseid}"
-                            data-studentname="${fullname}">
+                        <a href="${M.cfg.wwwroot}/report/log/index.php?${logsParams.toString()}"
+                           class="dropdown-item"
+                           role="menuitem"
+                           target="_blank">
                             <i class="fa-solid fa-clipboard-list" aria-hidden="true"></i>
                             <span class="menu-action-text">${logslabel}</span>
+                            <i class="fa-solid fa-up-right-from-square" aria-hidden="true"
+                               title="${M.util.get_string('opensinnewwindow', 'core')}"></i>
                         </a>` : '';
 
         return `

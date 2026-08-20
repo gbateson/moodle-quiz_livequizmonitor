@@ -127,8 +127,8 @@ class get_monitor_state extends external_api {
         ]);
 
         return new external_single_structure([
-            'quizid' => new external_value(PARAM_INT, 'Quiz id'),
             'cmid' => new external_value(PARAM_INT, 'CM id'),
+            'quizid' => new external_value(PARAM_INT, 'Quiz id'),
             'quizname' => new external_value(PARAM_TEXT, 'Quiz name'),
             'updatedat' => new external_value(PARAM_INT, 'Updated timestamp'),
             'totalstudents' => new external_value(PARAM_INT, 'Total students'),
@@ -191,8 +191,8 @@ class get_monitor_state extends external_api {
 
         $summary = $state->summary;
         return [
-            'quizid' => $state->quizid,
             'cmid' => $state->cmid,
+            'quizid' => $state->quizid,
             'quizname' => $state->quizname,
             'updatedat' => $state->updatedat,
             'totalstudents' => $state->totalstudents,

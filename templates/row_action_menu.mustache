@@ -68,15 +68,14 @@
         </a>
         {{/onesessionactive}}
         {{#canviewlogs}}
-        <a href="#"
-           class="dropdown-item menu-action"
+        <a href="{{wwwroot}}/report/log/index.php?chooselog=1&amp;id={{courseid}}&amp;user={{userid}}&amp;modid={{cmid}}&amp;showusers=0&amp;showcourses=0"
+           class="dropdown-item"
            role="menuitem"
-           data-action="showlogs"
-           data-userid="{{userid}}"
-           data-courseid="{{courseid}}"
-           data-studentname="{{fullname}}">
+           target="_blank">
             <i class="fa-solid fa-clipboard-list" aria-hidden="true"></i>
             <span class="menu-action-text">{{showlogslabel}}</span>
+            <i class="fa-solid fa-up-right-from-square" aria-hidden="true"
+                title="{{#str}}opensinnewwindow{{/str}}"></i>
         </a>
         {{/canviewlogs}}
     </div>

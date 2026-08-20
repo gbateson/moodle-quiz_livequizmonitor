@@ -50,7 +50,8 @@ class monitor_renderer extends plugin_renderer_base {
         $students = [];
         foreach ($state->students as $row) {
             $student = (array) $row;
-            $student['courseid'] = $row->courseid ?? $state->courseid;
+            $student['cmid'] = $state->cmid;
+            $student['courseid'] = $state->courseid;
             $student['extendactionenabled'] = $canextend && $row->status === monitor_manager::STATUS_INPROGRESS;
             $student['canextend'] = $canextend;
             $student['onesessionactive'] = $onesessionactive;
@@ -68,7 +69,6 @@ class monitor_renderer extends plugin_renderer_base {
         }
 
         return [
-            'cmid' => $state->cmid,
             'quizname' => $state->quizname,
             'totalstudents' => $state->totalstudents,
             'hasstudents' => (bool) $state->hasstudents,
@@ -79,6 +79,7 @@ class monitor_renderer extends plugin_renderer_base {
             'staleindicator' => get_string('staleindicator', 'quiz_livequizmonitor'),
             'emptycohort' => get_string('emptycohort', 'quiz_livequizmonitor'),
             'groupid' => $groupid,
+            'cmid' => $state->cmid,
             'courseid' => $state->courseid,
             'summary' => (array) $state->summary,
             'students' => $students,

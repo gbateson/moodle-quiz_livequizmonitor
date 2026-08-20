@@ -169,8 +169,8 @@ class monitor_manager {
 
         $state = (object) [
             'courseid' => (int) $course->id,
-            'quizid' => (int) $quiz->id,
             'cmid' => (int) $cm->id,
+            'quizid' => (int) $quiz->id,
             'quizname' => format_string($quiz->name, true, ['context' => $context]),
             'updatedat' => $now,
             'totalstudents' => count($students),
