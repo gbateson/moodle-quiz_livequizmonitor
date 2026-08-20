@@ -75,13 +75,4 @@ $functions = [
         'loginrequired' => true,
         'capabilities' => 'quiz/livequizmonitor:view',
     ],
-    'quiz_livequizmonitor_get_student_attempts' => [
-        'classname'   => 'quiz_livequizmonitor\external\get_student_attempts',
-        'methodname'  => 'execute',
-        'description' => 'Retrieves quiz attempts for a specific student',
-        'type'        => 'read',
-        'ajax'        => true,
-        'loginrequired' => true,
-        'capabilities' => 'quiz/livequizmonitor:view',
-    ],
 ];

@@ -103,6 +103,8 @@ class monitor_manager {
         $context = context_module::instance($cm->id);
         $now = time();
 
+        $canviewattempts = has_capability('mod/quiz:viewreports', $context);
+
         // Resolve group for enrolment query (respect quiz report group mode).
         if ($groupid <= 0) {
             $groupid = groups_get_activity_group($cm, true) ?: 0;
@@ -166,8 +168,8 @@ class monitor_manager {
 
         $state = (object) [
             'courseid' => (int) $course->id,
-            'quizid' => (int) $quiz->id,
             'cmid' => (int) $cm->id,
+            'quizid' => (int) $quiz->id,
             'quizname' => format_string($quiz->name, true, ['context' => $context]),
             'updatedat' => $now,
             'totalstudents' => count($students),
@@ -178,6 +180,7 @@ class monitor_manager {
             'inprogresscount' => $inprogresscount,
             'onesessionactive' => $onesessionactive,
             'canunblock' => $canunblock,
+            'canviewattempts' => $canviewattempts,
         ];
 
         return $state;
@@ -371,6 +374,8 @@ class monitor_manager {
             'courseid' => (int) $quiz->course,
             'userid' => (int) $user->id,
             'fullname' => fullname($user),
+            'firstinitial' => \core_text::strtoupper(\core_text::substr($user->firstname, 0, 1)),
+            'lastinitial' => \core_text::strtoupper(\core_text::substr($user->lastname, 0, 1)),
             'email' => $showemail ? $user->email : '',
             'showemail' => $showemail,
             'status' => $status,

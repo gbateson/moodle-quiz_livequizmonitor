@@ -45,15 +45,18 @@ class monitor_renderer extends plugin_renderer_base {
         $inprogresscount = (int) ($state->inprogresscount ?? $state->summary->inprogress->count);
         $onesessionactive = !empty($state->onesessionactive);
         $canunblock = !empty($state->canunblock);
+        $canviewattempts = !empty($state->canviewattempts);
 
         $students = [];
         foreach ($state->students as $row) {
             $student = (array) $row;
-            $student['courseid'] = $row->courseid ?? $state->courseid;
+            $student['cmid'] = $state->cmid;
+            $student['courseid'] = $state->courseid;
             $student['extendactionenabled'] = $canextend && $row->status === monitor_manager::STATUS_INPROGRESS;
             $student['canextend'] = $canextend;
             $student['onesessionactive'] = $onesessionactive;
             $student['canunblock'] = $canunblock;
+            $student['canviewattempts'] = $canviewattempts;
             $student['notelabel'] = !empty($row->hasnote)
                 ? get_string('notes:editlabel', 'quiz_livequizmonitor')
                 : get_string('notes:addlabel', 'quiz_livequizmonitor');
@@ -65,7 +68,6 @@ class monitor_renderer extends plugin_renderer_base {
             $students[] = $student;
         }
         return [
-            'cmid' => $state->cmid,
             'quizname' => $state->quizname,
             'totalstudents' => $state->totalstudents,
             'hasstudents' => (bool) $state->hasstudents,
@@ -76,12 +78,14 @@ class monitor_renderer extends plugin_renderer_base {
             'staleindicator' => get_string('staleindicator', 'quiz_livequizmonitor'),
             'emptycohort' => get_string('emptycohort', 'quiz_livequizmonitor'),
             'groupid' => $groupid,
+            'cmid' => $state->cmid,
             'courseid' => $state->courseid,
             'summary' => (array) $state->summary,
             'students' => $students,
             'canextend' => $canextend,
             'onesessionactive' => $onesessionactive,
             'canunblock' => $canunblock,
+            'canviewattempts' => $canviewattempts,
             'inprogresscount' => $inprogresscount,
             'bulkextenddisabled' => $inprogresscount === 0,
             'bulkextendlabel' => get_string('extend:bulklabel', 'quiz_livequizmonitor'),
