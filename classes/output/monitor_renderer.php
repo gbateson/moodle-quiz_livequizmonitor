@@ -45,25 +45,30 @@ class monitor_renderer extends plugin_renderer_base {
         $inprogresscount = (int) ($state->inprogresscount ?? $state->summary->inprogress->count);
         $onesessionactive = !empty($state->onesessionactive);
         $canunblock = !empty($state->canunblock);
+        $canviewlogs = !empty($state->canviewlogs);
 
         $students = [];
         foreach ($state->students as $row) {
             $student = (array) $row;
+            $student['cmid'] = $state->cmid;
+            $student['courseid'] = $state->courseid;
             $student['extendactionenabled'] = $canextend && $row->status === monitor_manager::STATUS_INPROGRESS;
             $student['canextend'] = $canextend;
             $student['onesessionactive'] = $onesessionactive;
             $student['canunblock'] = $canunblock;
+            $student['canviewlogs'] = $canviewlogs;
             $student['notelabel'] = !empty($row->hasnote)
                 ? get_string('notes:editlabel', 'quiz_livequizmonitor')
                 : get_string('notes:addlabel', 'quiz_livequizmonitor');
+            // Perhaps these label don't need to be passed with every student?
             $student['extendrowlabel'] = get_string('extend:rowaction', 'quiz_livequizmonitor');
             $student['unblocklabel'] = get_string('onesession:unblocklabel', 'quiz_livequizmonitor');
             $student['blockedflaglabel'] = get_string('onesession:blockedflag', 'quiz_livequizmonitor');
+            $student['showlogslabel'] = get_string('logs:showlabel', 'quiz_livequizmonitor');
             $students[] = $student;
         }
 
         return [
-            'cmid' => $state->cmid,
             'quizname' => $state->quizname,
             'quizpassword' => $state->quizpassword,
             'totalstudents' => $state->totalstudents,
@@ -75,11 +80,14 @@ class monitor_renderer extends plugin_renderer_base {
             'staleindicator' => get_string('staleindicator', 'quiz_livequizmonitor'),
             'emptycohort' => get_string('emptycohort', 'quiz_livequizmonitor'),
             'groupid' => $groupid,
+            'cmid' => $state->cmid,
+            'courseid' => $state->courseid,
             'summary' => (array) $state->summary,
             'students' => $students,
             'canextend' => $canextend,
             'onesessionactive' => $onesessionactive,
             'canunblock' => $canunblock,
+            'canviewlogs' => $canviewlogs,
             'inprogresscount' => $inprogresscount,
             'showpasswordlabel' => get_string('showpassword:label', 'quiz_livequizmonitor'),
             'bulkextenddisabled' => $inprogresscount === 0,
@@ -89,6 +97,7 @@ class monitor_renderer extends plugin_renderer_base {
             'noteseditlabel' => get_string('notes:editlabel', 'quiz_livequizmonitor'),
             'unblocklabel' => get_string('onesession:unblocklabel', 'quiz_livequizmonitor'),
             'blockedflaglabel' => get_string('onesession:blockedflag', 'quiz_livequizmonitor'),
+            'showlogslabel' => get_string('logs:showlabel', 'quiz_livequizmonitor'),
             'actionsmenulabel' => get_string('actions'),
             'tableheaders' => [
                 'status' => get_string('table:status', 'quiz_livequizmonitor'),
