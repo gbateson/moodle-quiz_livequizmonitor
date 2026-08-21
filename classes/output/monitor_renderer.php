@@ -46,6 +46,7 @@ class monitor_renderer extends plugin_renderer_base {
         $onesessionactive = !empty($state->onesessionactive);
         $canunblock = !empty($state->canunblock);
         $canviewlogs = !empty($state->canviewlogs);
+        $canviewattempts = !empty($state->canviewattempts);
 
         $students = [];
         foreach ($state->students as $row) {
@@ -57,6 +58,7 @@ class monitor_renderer extends plugin_renderer_base {
             $student['onesessionactive'] = $onesessionactive;
             $student['canunblock'] = $canunblock;
             $student['canviewlogs'] = $canviewlogs;
+            $student['canviewattempts'] = $canviewattempts;
             $student['notelabel'] = !empty($row->hasnote)
                 ? get_string('notes:editlabel', 'quiz_livequizmonitor')
                 : get_string('notes:addlabel', 'quiz_livequizmonitor');
@@ -65,9 +67,9 @@ class monitor_renderer extends plugin_renderer_base {
             $student['unblocklabel'] = get_string('onesession:unblocklabel', 'quiz_livequizmonitor');
             $student['blockedflaglabel'] = get_string('onesession:blockedflag', 'quiz_livequizmonitor');
             $student['showlogslabel'] = get_string('logs:showlabel', 'quiz_livequizmonitor');
+            $student['showattemptslabel'] = get_string('attempts:showlabel', 'quiz_livequizmonitor');
             $students[] = $student;
         }
-
         return [
             'quizname' => $state->quizname,
             'quizpassword' => $state->quizpassword,
@@ -88,6 +90,7 @@ class monitor_renderer extends plugin_renderer_base {
             'onesessionactive' => $onesessionactive,
             'canunblock' => $canunblock,
             'canviewlogs' => $canviewlogs,
+            'canviewattempts' => $canviewattempts,
             'inprogresscount' => $inprogresscount,
             'showpasswordlabel' => get_string('showpassword:label', 'quiz_livequizmonitor'),
             'bulkextenddisabled' => $inprogresscount === 0,
@@ -98,6 +101,7 @@ class monitor_renderer extends plugin_renderer_base {
             'unblocklabel' => get_string('onesession:unblocklabel', 'quiz_livequizmonitor'),
             'blockedflaglabel' => get_string('onesession:blockedflag', 'quiz_livequizmonitor'),
             'showlogslabel' => get_string('logs:showlabel', 'quiz_livequizmonitor'),
+            'showattemptslabel' => get_string('attempts:showlabel', 'quiz_livequizmonitor'),
             'actionsmenulabel' => get_string('actions'),
             'tableheaders' => [
                 'status' => get_string('table:status', 'quiz_livequizmonitor'),

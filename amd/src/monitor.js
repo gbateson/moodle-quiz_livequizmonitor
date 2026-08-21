@@ -90,6 +90,8 @@ class MonitorComponent extends BaseComponent {
         this.blockedFlagLabel = root.dataset.blockedFlagLabel ?? 'Blocked';
         this.showLogsLabel = root.dataset.showLogsLabel ?? 'Show logs';
         this.canviewlogs = root.dataset.canviewlogs === '1';
+        this.showAttemptsLabel = root.dataset.showAttemptsLabel ?? 'Show_attempts';
+        this.canviewattempts = root.dataset.canviewattempts === '1';
     }
 
     /**
@@ -621,7 +623,9 @@ class MonitorComponent extends BaseComponent {
             courseid: student.courseid ?? this.courseId,
             cmid: student.cmid ?? this.cmid,
             userid: student.userid ?? student.id,
-            fullname: student.fullname ?? '',
+            fullname: student.fullname,
+            firstinitial: student.firstinitial,
+            lastinitial: student.lastinitial,
             email: student.email ?? '',
             statusclass: student.statusclass ?? '',
             statuslabel: student.statuslabel ?? '',
@@ -647,7 +651,9 @@ class MonitorComponent extends BaseComponent {
             blockedflaglabel: this.blockedFlagLabel,
             showlogslabel: this.showLogsLabel,
             canviewlogs: this.canviewlogs,
+            showattemptslabel: this.showAttemptsLabel,
             actionsmenulabel: this.actionsMenuLabel,
+            canviewattempts: this.canviewattempts,
         };
     }
 
@@ -942,7 +948,6 @@ class MonitorComponent extends BaseComponent {
         const actionslabel = this.escapeHtml(this.actionsMenuLabel);
         const unblocklabel = this.escapeHtml(this.unblockRowLabel);
         const blockedflaglabel = this.escapeHtml(this.blockedFlagLabel);
-        const logslabel = this.escapeHtml(this.showLogsLabel);
         const notelabel = this.escapeHtml(student.hasnote ? this.noteEditLabel : this.noteAddLabel);
         const hasnote = student.hasnote ? '1' : '0';
         const showextend = !!(student.canextend ?? this.canextend);
@@ -983,25 +988,10 @@ class MonitorComponent extends BaseComponent {
             ? `<i class="fa-solid fa-flag livequizmonitor-blocked-flag" title="${blockedflaglabel}" aria-hidden="true"></i>`
             : '';
 
-        const logsParams = new URLSearchParams({
-            chooselog: 1,
-            id: this.courseid,
-            user: userid,
-            modid: this.cmid,
-            showusers: 0,
-            showcourses: 0,
-        });
-
-        const logsItem = this.canviewlogs ? `
-                        <a href="${M.cfg.wwwroot}/report/log/index.php?${logsParams.toString()}"
-                           class="dropdown-item"
-                           role="menuitem"
-                           target="_blank">
-                            <i class="fa-solid fa-clipboard-list" aria-hidden="true"></i>
-                            <span class="menu-action-text">${logslabel}</span>
-                            <i class="fa-solid fa-up-right-from-square" aria-hidden="true"
-                               title="${M.util.get_string('opensinnewwindow', 'core')}"></i>
-                        </a>` : '';
+        // To reduce code complexity, as measured by Grunt, the html
+        // for logsItem and attemptsItem is built in separate functions.
+        const logsItem = this.buildLogsItemHtml(student);
+        const attemptsItem = this.buildAttemptsItemHtml(student);
 
         return `
             <div class="livequizmonitor-actions-inner">
@@ -1025,11 +1015,83 @@ class MonitorComponent extends BaseComponent {
                            data-hasnote="${hasnote}">
                             <i class="fa-solid fa-book" aria-hidden="true"></i>
                             <span class="menu-action-text">${notelabel}</span>
-                        </a>${extendItem}${unblockItem}${logsItem}
+                        </a>${extendItem}${unblockItem}${logsItem}${attemptsItem}
                     </div>
                 </div>${flagHtml}
             </div>
         `;
+    }
+
+    /**
+     * Build the menu item for viewing student logs.
+     *
+     * @param {object} student Data about the current student.
+     * @returns {string} HTML for the logs menu item.
+     */
+    buildLogsItemHtml(student) {
+        if (!this.canviewlogs) {
+            return '';
+        }
+
+        const logsParams = new URLSearchParams({
+            chooselog: 1,
+            id: this.courseid,
+            user: student.userid,
+            modid: this.cmid,
+            showusers: 0,
+            showcourses: 0,
+        });
+
+        const logslabel = this.escapeHtml(this.showLogsLabel);
+
+        return `
+                        <a href="${M.cfg.wwwroot}/report/log/index.php?${logsParams.toString()}"
+                           class="dropdown-item"
+                           role="menuitem"
+                           target="_blank">
+                            <i class="fa-solid fa-clipboard-list" aria-hidden="true"></i>
+                            <span class="menu-action-text">${logslabel}</span>
+                            <i class="fa-solid fa-up-right-from-square" aria-hidden="true"
+                               title="${M.util.get_string('opensinnewwindow', 'core')}"></i>
+                        </a>`;
+    }
+
+    /**
+     * Build the menu item for viewing student attempts.
+     *
+     * @param {object} student Data about the current student.
+     * @returns {string} HTML for the attempts menu item.
+     */
+    buildAttemptsItemHtml(student) {
+        if (!this.canviewattempts) {
+            return '';
+        }
+
+        const attemptsParams = new URLSearchParams({
+            id: this.cmid,
+            mode: 'overview',
+        });
+
+        if (student.firstinitial) {
+            attemptsParams.set('tifirst', student.firstinitial);
+        }
+
+        if (student.lastinitial) {
+            attemptsParams.set('tilast', student.lastinitial);
+        }
+
+        const attemptslabel = this.escapeHtml(this.showAttemptsLabel);
+
+        return `
+                            <a href="${M.cfg.wwwroot}/mod/quiz/report.php?${attemptsParams.toString()}"
+                            class="dropdown-item"
+                            role="menuitem"
+                            target="_blank">
+                                <i class="fa-solid fa-clipboard-list" aria-hidden="true"></i>
+                                <span class="menu-action-text">${attemptslabel}</span>
+                                <i class="fa-solid fa-up-right-from-square" aria-hidden="true"
+                                title="${M.util.get_string('opensinnewwindow', 'core')}"></i>
+                            </a>`;
     }
 
     /**

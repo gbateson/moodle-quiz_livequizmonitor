@@ -78,5 +78,16 @@
                 title="{{#str}}opensinnewwindow{{/str}}"></i>
         </a>
         {{/canviewlogs}}
+        {{#canviewattempts}}
+        <a href="{{wwwroot}}/mod/quiz/report.php?id={{cmid}}&amp;mode=overview&amp;tifirst={{firstinitial}}&amp;tilast={{lastinitial}}"
+           class="dropdown-item"
+           role="menuitem"
+           target="_blank">
+             <i class="fa-solid fa-table-list" aria-hidden="true"></i>
+             <span class="menu-action-text">{{showattemptslabel}}</span>
+             <i class="fa-solid fa-up-right-from-square" aria-hidden="true"
+                title="{{#str}}opensinnewwindow{{/str}}"></i>
+        </a>
+        {{/canviewattempts}}
     </div>
 </div>
