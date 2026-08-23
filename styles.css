@@ -189,6 +189,10 @@
     margin-right: 0.6rem;
 }
 
+.livequizmonitor-row-actions .dropdown-item .fa-table-list {
+    margin-right: 0.4rem;
+}
+
 .livequizmonitor-note-modal-body textarea {
     min-height: 8rem;
     resize: vertical;
