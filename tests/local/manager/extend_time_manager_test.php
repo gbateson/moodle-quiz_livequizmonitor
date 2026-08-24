@@ -116,7 +116,7 @@ final class extend_time_manager_test extends advanced_testcase {
         $quizgenerator->create_attempt($quiz->id, $inprogress->id);
 
         $this->setUser($teacher);
-        $userids = extend_time_manager::get_inprogress_user_ids($course, $cm, $quiz, 0);
+        $userids = extend_time_manager::get_active_userids($course, $cm, $quiz, 0);
         $this->assertSame([(int) $inprogress->id], $userids);
 
         $outcome = extend_time_manager::extend_quiz_time(

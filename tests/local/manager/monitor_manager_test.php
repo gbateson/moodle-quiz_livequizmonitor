@@ -570,4 +570,135 @@ final class monitor_manager_test extends advanced_testcase {
         $this->assertTrue($blockedrow->isblocked);
         $this->assertTrue($blockedrow->unblockactionenabled);
     }
+
+    /**
+     * Backdate the most recent question-attempt step so the attempt reads as idle.
+     *
+     * @param int $attemptid Attempt id.
+     * @param int $minutesago Minutes to backdate the last activity.
+     */
+    private function backdate_last_activity(int $attemptid, int $minutesago): void {
+        global $DB;
+
+        $attempt = $DB->get_record('quiz_attempts', ['id' => $attemptid], '*', MUST_EXIST);
+        $step = $DB->get_record_sql(
+            "SELECT qas.*
+            FROM {question_attempt_steps} qas
+            JOIN {question_attempts} qa ON qa.id = qas.questionattemptid
+            WHERE qa.questionusageid = :uniqueid
+        ORDER BY qas.timecreated DESC",
+            ['uniqueid' => $attempt->uniqueid],
+            MUST_EXIST
+        );
+        $step->timecreated = time() - ($minutesago * 60);
+        $DB->update_record('question_attempt_steps', $step);
+    }
+
+    /**
+     * A fresh in-progress attempt is not idle.
+     */
+    public function test_get_state_recent_activity_is_inprogress_not_idle(): void {
+        $this->resetAfterTest();
+
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        [$quiz, $cm, $quizgenerator] = $this->create_quiz_with_question($course);
+
+        $user = $generator->create_user(['firstname' => 'Active', 'lastname' => 'Student']);
+        $generator->enrol_user($user->id, $course->id, 'student');
+        $this->setUser($user);
+        $quizgenerator->create_attempt($quiz->id, $user->id);
+
+        $this->setAdminUser();
+        $state = monitor_manager::get_state($course, $cm, $quiz, 0);
+
+        $this->assertSame(monitor_manager::STATUS_INPROGRESS, $state->students[0]->status);
+        $this->assertSame(0, $state->summary->idle->count);
+        $this->assertSame(1, $state->summary->inprogress->count);
+    }
+
+    /**
+     * No activity for 5+ minutes maps the row to idle, and the timer/progress
+     * fields are still populated (idle students still have a running attempt).
+     */
+    public function test_get_state_stale_activity_maps_to_idle(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        [$quiz, $cm, $quizgenerator] = $this->create_quiz_with_question($course);
+        $DB->set_field('quiz', 'timelimit', 600, ['id' => $quiz->id]);
+        $quiz = $DB->get_record('quiz', ['id' => $quiz->id], '*', MUST_EXIST);
+
+        $user = $generator->create_user(['firstname' => 'Idle', 'lastname' => 'Student']);
+        $generator->enrol_user($user->id, $course->id, 'student');
+        $this->setUser($user);
+        $attempt = $quizgenerator->create_attempt($quiz->id, $user->id);
+        $this->backdate_last_activity($attempt->id, 6);
+
+        $this->setAdminUser();
+        $state = monitor_manager::get_state($course, $cm, $quiz, 0);
+        $row = $state->students[0];
+
+        $this->assertSame(monitor_manager::STATUS_IDLE, $row->status);
+        $this->assertTrue($row->hastimer, 'Idle students should still show a countdown');
+        $this->assertNotNull($row->timeremaining);
+        $this->assertSame(1, $state->summary->idle->count);
+        $this->assertSame(0, $state->summary->inprogress->count);
+    }
+
+    /**
+     * Rows sort in-progress, idle, not-started, then completed;
+     * ties within a status bucket are broken by fullname.
+     */
+    public function test_get_state_sorts_all_statuses_with_fullname_tiebreak(): void {
+        $this->resetAfterTest();
+
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        [$quiz, $cm, $quizgenerator] = $this->create_quiz_with_question($course);
+
+        $inprogress = $generator->create_user(['firstname' => 'Ann', 'lastname' => 'Active']);
+        $idle1 = $generator->create_user(['firstname' => 'Cal', 'lastname' => 'Idle']);
+        $idle2 = $generator->create_user(['firstname' => 'Ben', 'lastname' => 'Idle']);
+        $notstarted = $generator->create_user(['firstname' => 'Dee', 'lastname' => 'New']);
+        $completed = $generator->create_user(['firstname' => 'Eve', 'lastname' => 'Done']);
+
+        foreach ([$inprogress, $idle1, $idle2, $notstarted, $completed] as $user) {
+            $generator->enrol_user($user->id, $course->id, 'student');
+        }
+
+        $this->setUser($inprogress);
+        $quizgenerator->create_attempt($quiz->id, $inprogress->id);
+
+        // Deliberately created out of alphabetical order, so that
+        // if sorting fell back to insertion order instead of comparing fullname,
+        // idle1 ("Cal") would wrongly appear before idle2 ("Ben").
+        $this->setUser($idle1);
+        $idle1attempt = $quizgenerator->create_attempt($quiz->id, $idle1->id);
+        $this->backdate_last_activity($idle1attempt->id, 6);
+
+        $this->setUser($idle2);
+        $idle2attempt = $quizgenerator->create_attempt($quiz->id, $idle2->id);
+        $this->backdate_last_activity($idle2attempt->id, 6);
+
+        $this->create_quiz_attempt($quizgenerator, $quiz->id, $completed->id, quiz_attempt::FINISHED);
+
+        // Note that $notstarted never attempts the quiz.
+
+        $this->setAdminUser();
+        $state = monitor_manager::get_state($course, $cm, $quiz, 0);
+
+        $actual = array_map(fn($row) => [$row->status, $row->fullname], $state->students);
+
+        $this->assertSame([
+            [monitor_manager::STATUS_INPROGRESS, fullname($inprogress)],
+            [monitor_manager::STATUS_IDLE, fullname($idle2)], // Ben before Cal.
+            [monitor_manager::STATUS_IDLE, fullname($idle1)],
+            [monitor_manager::STATUS_NOTSTARTED, fullname($notstarted)],
+            [monitor_manager::STATUS_COMPLETED, fullname($completed)],
+        ], $actual);
+    }
 }
