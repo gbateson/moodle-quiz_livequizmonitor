@@ -64,8 +64,7 @@ class get_monitor_state extends external_api {
             'groupid' => $groupid,
         ]);
 
-        $cm = get_coursemodule_from_id('quiz', $params['cmid'], 0, false, MUST_EXIST);
-        $course = get_course($cm->course);
+        [$course, $cm] = get_course_and_cm_from_cmid($params['cmid'], 'quiz');
         $quiz = $DB->get_record('quiz', ['id' => $cm->instance], '*', MUST_EXIST);
         $context = context_module::instance($cm->id);
 
