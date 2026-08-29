@@ -150,4 +150,34 @@ class behat_quiz_livequizmonitor extends behat_base {
         $plugin = enrol_get_plugin('manual');
         $plugin->unenrol_user($instance, $user->id);
     }
+
+    /**
+     * Add a user to a group, triggering the group_member_added event.
+     *
+     * @Given /^user "([^"]*)" is added to group "([^"]*)"$/
+     *
+     * @param string $username Username of the user to add to the group.
+     * @param string $groupname Name of the group to add the user to.
+     */
+    public function user_is_added_to_group($username, $groupname) {
+        global $DB;
+        $userid = $DB->get_field('user', 'id', ['username' => $username], MUST_EXIST);
+        $groupid = $DB->get_field('groups', 'id', ['name' => $groupname], MUST_EXIST);
+        groups_add_member($groupid, $userid);
+    }
+
+    /**
+     * Remove a user from a group, triggering the group_member_removed event.
+     *
+     * @Given /^user "([^"]*)" is removed from group "([^"]*)"$/
+     *
+     * @param string $username Username of the user to remove from the group.
+     * @param string $groupname Name of the group to remove the user from.
+     */
+    public function user_is_removed_from_group($username, $groupname) {
+        global $DB;
+        $userid = $DB->get_field('user', 'id', ['username' => $username], MUST_EXIST);
+        $groupid = $DB->get_field('groups', 'id', ['name' => $groupname], MUST_EXIST);
+        groups_remove_member($groupid, $userid);
+    }
 }

@@ -24,14 +24,16 @@
 
 namespace quiz_livequizmonitor\local\manager;
 
+use stdClass;
+use context_module;
+use cm_info;
+use core_availability\info_module;
+use core_user\fields;
+use mod_quiz\quiz_attempt;
+
 defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->dirroot . '/mod/quiz/locallib.php');
-
-use cm_info;
-use context_module;
-use mod_quiz\quiz_attempt;
-use stdClass;
 
 /**
  * Manager for cohort resolution, status mapping, and monitor payloads.
@@ -108,7 +110,9 @@ class monitor_manager {
             $groupid = groups_get_activity_group($cm, true) ?: 0;
         }
 
-        $students = get_enrolled_users($context, 'mod/quiz:attempt', $groupid, 'u.*', 'u.lastname ASC, u.firstname ASC');
+        // Get the student list, honouring the activity's access restrictions.
+        $students = self::get_allowed_students($cm, $context, (int) $groupid);
+
         $totalquestions = self::count_quiz_questions((int) $quiz->id);
         $showemail = has_capability('moodle/course:viewhiddenuserfields', $context);
 
@@ -180,6 +184,49 @@ class monitor_manager {
         ];
 
         return $state;
+    }
+
+    /**
+     * Get the users who may attempt this quiz, honouring activity access restrictions.
+     *
+     * The availability filter is folded into the enrolment query via
+     * info_module::get_user_list_sql(), so the roster costs one query and is never stale.
+     *
+     * Suspended enrolments are deliberately included: an invigilator still needs to see
+     * a student whose enrolment changes while their attempt is in progress.
+     *
+     * @param cm_info|stdClass $cm Course module record.
+     * @param context_module $context Module context.
+     * @param int $groupid Active group id (0 = all groups).
+     * @return array User records keyed by user id.
+     */
+    public static function get_allowed_students(cm_info|stdClass $cm, context_module $context, int $groupid): array {
+        global $DB;
+
+        $onlyactive = false;
+
+        [$enrolledsql, $params] = get_enrolled_sql($context, 'mod/quiz:attempt', $groupid, $onlyactive);
+
+        $namefields = fields::for_name()->get_sql('u', false, '', '', false)->selects;
+        $sql = "SELECT u.id, u.email, $namefields
+                  FROM {user} u
+                  JOIN ($enrolledsql) e ON e.id = u.id
+                 WHERE u.deleted = 0";
+
+        // Fold the activity's access restrictions into the same query.
+        if ($cm instanceof stdClass) {
+            $cm = cm_info::create($cm);
+        }
+        $info = new info_module($cm);
+        [$usersql, $userparams] = $info->get_user_list_sql($onlyactive);
+        if ($usersql !== '') {
+            $sql .= " AND u.id IN ($usersql)";
+            $params = array_merge($params, $userparams);
+        }
+
+        $sql .= ' ORDER BY u.lastname ASC, u.firstname ASC';
+
+        return $DB->get_records_sql($sql, $params);
     }
 
     /**
