@@ -1044,29 +1044,18 @@ class MonitorComponent extends BaseComponent {
             }
 
             const active = header.dataset.sortColumn === sortcolumn;
-            const descending = active && sortdirection === 'desc';
-
             icon.classList.toggle('text-primary', active);
             icon.classList.toggle('text-secondary', !active);
 
-            icon.classList.toggle(
-                'fa-arrow-up-short-wide',
-                !descending
-            );
-            icon.classList.toggle(
-                'fa-arrow-down-short-wide',
-                descending
-            );
+            const descending = active && sortdirection === 'desc';
+            icon.classList.toggle('fa-arrow-down-wide-short', descending);
+            icon.classList.toggle('fa-arrow-down-short-wide', !descending);
 
-            if (active) {
-                const label = descending ? this.sortDescendingLabel : this.sortAscendingLabel;
-                icon.setAttribute('title', label);
-                icon.setAttribute('aria-label', label);
-            } else {
-                const label = icon.dataset.sortbyLabel;
-                icon.setAttribute('title', label);
-                icon.setAttribute('aria-label', label);
-            }
+            const label = active
+                ? (descending ? this.sortDescendingLabel : this.sortAscendingLabel)
+                : icon.dataset.sortbyLabel;
+            icon.setAttribute('title', label);
+            icon.setAttribute('aria-label', label);
         });
     }
 

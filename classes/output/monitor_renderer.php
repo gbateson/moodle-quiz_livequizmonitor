@@ -73,10 +73,10 @@ class monitor_renderer extends plugin_renderer_base {
 
             if ($active && $state->sortdirection === 'desc') {
                 $sortlabel = get_string('desc');
-                $sorticon = 'fa-arrow-down-short-wide';
+                $sorticon = 'fa-arrow-down-wide-short';
             } else {
                 $sortlabel = get_string('asc');
-                $sorticon = 'fa-arrow-up-short-wide';
+                $sorticon = 'fa-arrow-down-short-wide';
             }
             $sortbylabel = get_string('sortby', 'quiz_livequizmonitor', $label);
 
