@@ -113,6 +113,7 @@ class MonitorComponent extends BaseComponent {
             {watch: 'meta.updatedat:updated', handler: this.renderLastUpdated},
             {watch: 'meta.stale:updated', handler: this.renderStaleIndicator},
             {watch: 'summary.notstarted:updated', handler: this.renderSummary},
+            {watch: 'summary.idle:updated', handler: this.renderSummary},
             {watch: 'summary.inprogress:updated', handler: this.renderSummary},
             {watch: 'summary.completed:updated', handler: this.renderSummary},
             {watch: 'students:created', handler: this.renderStudents},
@@ -134,6 +135,7 @@ class MonitorComponent extends BaseComponent {
             {watch: 'meta.canunblock:updated', handler: this.renderStudents},
             {watch: 'meta.hasstudents:updated', handler: this.renderCohortLayout},
             {watch: 'summary.notstarted:updated', handler: this.renderFilterToolbar},
+            {watch: 'summary.idle:updated', handler: this.renderFilterToolbar},
             {watch: 'summary.inprogress:updated', handler: this.renderFilterToolbar},
             {watch: 'summary.inprogress:updated', handler: this.renderBulkExtendButton},
             {watch: 'summary.completed:updated', handler: this.renderFilterToolbar},
@@ -265,7 +267,10 @@ class MonitorComponent extends BaseComponent {
      */
     async openBulkExtendModal() {
         const state = this.getState();
-        const inprogresscount = state?.summary?.inprogress?.count ?? state?.meta?.inprogresscount ?? 0;
+        const summary = state?.summary ?? {};
+        const inprogresscount = (summary.inprogress?.count ?? 0) + (summary.idle?.count ?? 0)
+                                || state?.meta?.inprogresscount
+                                || 0;
         const response = await showExtendModal({
             mode: 'bulk',
             cmid: this.cmid,
@@ -356,7 +361,8 @@ class MonitorComponent extends BaseComponent {
         if (!button) {
             return;
         }
-        const count = this.getState()?.summary?.inprogress?.count ?? 0;
+        const summary = this.getState()?.summary ?? {};
+        const count = (summary.inprogress?.count ?? 0) + (summary.idle?.count ?? 0);
         button.disabled = count === 0;
     }
 
@@ -553,7 +559,7 @@ class MonitorComponent extends BaseComponent {
         if (!summary) {
             return;
         }
-        ['inprogress', 'notstarted', 'completed'].forEach((key) => {
+        ['notstarted', 'idle', 'inprogress', 'completed'].forEach((key) => {
             const bucket = summary[key];
             if (!bucket) {
                 return;
@@ -863,6 +869,7 @@ class MonitorComponent extends BaseComponent {
         const counts = {
             all: state.meta?.totalstudents ?? 0,
             notstarted: summary.notstarted?.count ?? 0,
+            idle: summary.idle?.count ?? 0,
             inprogress: summary.inprogress?.count ?? 0,
             completed: summary.completed?.count ?? 0,
         };
@@ -918,7 +925,7 @@ class MonitorComponent extends BaseComponent {
      * @returns {boolean}
      */
     isExtendActionEnabled(student) {
-        return student?.status === 'inprogress';
+        return student?.status === 'inprogress' || student?.status === 'idle';
     }
 
     /**

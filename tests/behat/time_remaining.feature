@@ -34,7 +34,7 @@ Feature: Display accurate time remaining in Live Quiz Monitor
     And I press "Attempt quiz"
     And I log in as "teacher1"
     When I am on the live monitor report for "Quiz No Limit"
-    Then I should see "00:00" in the "Sam Student" "table_row"
+    Then I should see "—" in the "Sam Student" "table_row"
 
   Scenario: Time limit 45 mins, no close time outputs "44:5x"
     Given the following "activities" exist:

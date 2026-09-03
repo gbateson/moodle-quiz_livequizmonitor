@@ -103,7 +103,7 @@ class extend_time_manager {
             }
             $userids = [$userid];
         } else if ($scope === self::SCOPE_BULK) {
-            $userids = self::get_inprogress_user_ids($course, $cm, $quiz, $groupid);
+            $userids = self::get_active_userids($course, $cm, $quiz, $groupid);
         } else {
             throw new moodle_exception('invalidscope', 'quiz_livequizmonitor');
         }
@@ -142,16 +142,20 @@ class extend_time_manager {
      * @param int $groupid Group filter.
      * @return int[]
      */
-    public static function get_inprogress_user_ids(
+    public static function get_active_userids(
         stdClass $course,
         cm_info|stdClass $cm,
         stdClass $quiz,
         int $groupid
     ): array {
         $state = monitor_manager::get_state($course, $cm, $quiz, $groupid);
+        $activestatus = [
+            monitor_manager::STATUS_INPROGRESS,
+            monitor_manager::STATUS_IDLE,
+        ];
         $userids = [];
         foreach ($state->students as $row) {
-            if ($row->status === monitor_manager::STATUS_INPROGRESS) {
+            if (in_array($row->status, $activestatus, true)) {
                 $userids[] = (int) $row->userid;
             }
         }

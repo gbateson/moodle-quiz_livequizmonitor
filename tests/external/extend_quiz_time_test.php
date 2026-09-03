@@ -198,4 +198,84 @@ final class extend_quiz_time_test extends advanced_testcase {
             'userid' => $fixture['studentb']->id,
         ]));
     }
+
+    /**
+     * Backdate the most recent question-attempt step so the attempt reads as idle.
+     *
+     * @param int $attemptid Attempt id.
+     * @param int $minutesago Minutes to backdate the last activity.
+     */
+    private function backdate_last_activity(int $attemptid, int $minutesago): void {
+        global $DB;
+
+        $attempt = $DB->get_record('quiz_attempts', ['id' => $attemptid], '*', MUST_EXIST);
+        $step = $DB->get_record_sql(
+            "SELECT qas.*
+            FROM {question_attempt_steps} qas
+            JOIN {question_attempts} qa ON qa.id = qas.questionattemptid
+            WHERE qa.questionusageid = :uniqueid
+        ORDER BY qas.timecreated DESC",
+            ['uniqueid' => $attempt->uniqueid],
+            MUST_EXIST
+        );
+        $step->timecreated = time() - ($minutesago * 60);
+        $DB->update_record('question_attempt_steps', $step);
+    }
+
+    /**
+     * Bulk-eligible user ids include idle students, not just in-progress ones.
+     */
+    public function test_get_active_userids_includes_idle_students(): void {
+        $this->resetAfterTest();
+
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $teacher = $generator->create_user();
+        $activeuser = $generator->create_user();
+        $idleuser = $generator->create_user();
+        $generator->enrol_user($teacher->id, $course->id, 'editingteacher');
+        $generator->enrol_user($activeuser->id, $course->id, 'student');
+        $generator->enrol_user($idleuser->id, $course->id, 'student');
+
+        [$quiz, $cm, $quizgenerator] = $this->create_timed_quiz($course);
+
+        $this->setUser($activeuser);
+        $quizgenerator->create_attempt($quiz->id, $activeuser->id);
+
+        $this->setUser($idleuser);
+        $idleattempt = $quizgenerator->create_attempt($quiz->id, $idleuser->id);
+        $this->backdate_last_activity($idleattempt->id, 6);
+
+        $this->setUser($teacher);
+        $userids = extend_time_manager::get_active_userids($course, $cm, $quiz, 0);
+
+        $this->assertContains((int) $activeuser->id, $userids);
+        $this->assertContains((int) $idleuser->id, $userids);
+    }
+
+    /**
+     * Bulk extend actually extends idle students, not just in-progress ones.
+     */
+    public function test_extend_quiz_time_bulk_extends_idle_student(): void {
+        $this->resetAfterTest();
+
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $teacher = $generator->create_user();
+        $idleuser = $generator->create_user();
+        $generator->enrol_user($teacher->id, $course->id, 'editingteacher');
+        $generator->enrol_user($idleuser->id, $course->id, 'student');
+
+        [$quiz, $cm, $quizgenerator] = $this->create_timed_quiz($course);
+
+        $this->setUser($idleuser);
+        $idleattempt = $quizgenerator->create_attempt($quiz->id, $idleuser->id);
+        $this->backdate_last_activity($idleattempt->id, 6);
+
+        $this->setUser($teacher);
+        $outcome = extend_time_manager::extend_quiz_time($course, $cm, $quiz, 0, 10, extend_time_manager::SCOPE_BULK);
+
+        $this->assertSame(1, $outcome->extendedcount);
+        $this->assertContains(\fullname($idleuser), $outcome->usernames);
+    }
 }
