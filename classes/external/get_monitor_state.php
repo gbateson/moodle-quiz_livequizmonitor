@@ -139,6 +139,7 @@ class get_monitor_state extends external_api {
             'canunblock' => new external_value(PARAM_BOOL, 'Viewer may unblock attempts'),
             'summary' => new external_single_structure([
                 'notstarted' => $statuscount,
+                'idle' => $statuscount,
                 'inprogress' => $statuscount,
                 'completed' => $statuscount,
             ]),
@@ -202,6 +203,7 @@ class get_monitor_state extends external_api {
             'canunblock' => (bool) ($state->canunblock ?? false),
             'summary' => [
                 'notstarted' => (array) $summary->notstarted,
+                'idle' => (array) $summary->idle,
                 'inprogress' => (array) $summary->inprogress,
                 'completed' => (array) $summary->completed,
             ],

@@ -35,6 +35,12 @@ const emptySummary = () => ({
         label: '',
         statusclass: 'border-secondary',
     },
+    idle: {
+        count: 0,
+        percent: 0,
+        label: '',
+        statusclass: 'border-danger',
+    },
     inprogress: {
         count: 0,
         percent: 0,
@@ -123,7 +129,7 @@ class MonitorMutations {
         }
 
         // Update summary buckets in place so watchers receive summary.<bucket>:updated events.
-        ['notstarted', 'inprogress', 'completed'].forEach((key) => {
+        ['notstarted', 'inprogress', 'idle', 'completed'].forEach((key) => {
             if (payload.summary?.[key]) {
                 stateManager.state.summary[key] = payload.summary[key];
             }

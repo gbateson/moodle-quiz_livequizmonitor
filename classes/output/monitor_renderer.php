@@ -130,6 +130,12 @@ class monitor_renderer extends plugin_renderer_base {
                     'active' => false,
                 ],
                 [
+                    'status' => 'idle',
+                    'label' => get_string('status:idle', 'quiz_livequizmonitor'),
+                    'count' => $summary->idle->count,
+                    'active' => false,
+                ],
+                [
                     'status' => 'inprogress',
                     'label' => get_string('status:inprogress', 'quiz_livequizmonitor'),
                     'count' => $summary->inprogress->count,
