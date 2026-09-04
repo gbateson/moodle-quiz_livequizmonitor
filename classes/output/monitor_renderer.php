@@ -48,6 +48,56 @@ class monitor_renderer extends plugin_renderer_base {
         $canviewlogs = !empty($state->canviewlogs);
         $canviewattempts = !empty($state->canviewattempts);
 
+        // Define labels for sortable table headers.
+        $headers = [
+            'status' => get_string('table:status', 'quiz_livequizmonitor'),
+            'student' => get_string('table:student', 'quiz_livequizmonitor'),
+            'email' => get_string('table:email', 'quiz_livequizmonitor'),
+            'progress' => get_string('table:progress', 'quiz_livequizmonitor'),
+            'timeremaining' => get_string('table:timeremaining', 'quiz_livequizmonitor'),
+        ];
+
+        // If the first student does not have an email address, hide the email column.
+        if (empty($state->students) || empty($state->students[0]->showemail)) {
+            unset($headers['email']);
+            $showemailcolumn = false;
+        } else {
+            $showemailcolumn = true;
+        }
+
+        $tableheaders = [];
+
+        foreach ($headers as $header => $label) {
+            $sortcolumn = $header === 'student' ? 'fullname' : $header;
+            $active = $sortcolumn === $state->sortcolumn;
+
+            if ($active && $state->sortdirection === 'desc') {
+                $sortlabel = get_string('desc');
+                $sorticon = 'fa-arrow-down-short-wide';
+            } else {
+                $sortlabel = get_string('asc');
+                $sorticon = 'fa-arrow-up-short-wide';
+            }
+            $sortbylabel = get_string('sortby', 'quiz_livequizmonitor', $label);
+
+            if ($active) {
+                $sortclass = 'text-primary';
+            } else {
+                $sortclass = 'text-secondary';
+                $sortlabel = $sortbylabel;
+            }
+
+            $tableheaders[] = [
+                'label' => $label,
+                'sortcolumn' => $sortcolumn,
+                'active' => $active,
+                'sorticon' => $sorticon,
+                'sortlabel' => $sortlabel,
+                'sortclass' => $sortclass,
+                'sortbylabel' => $sortbylabel,
+            ];
+        }
+
         $students = [];
         foreach ($state->students as $row) {
             $student = (array) $row;
@@ -103,18 +153,14 @@ class monitor_renderer extends plugin_renderer_base {
             'showlogslabel' => get_string('logs:showlabel', 'quiz_livequizmonitor'),
             'showattemptslabel' => get_string('attempts:showlabel', 'quiz_livequizmonitor'),
             'actionsmenulabel' => get_string('actions'),
-            'tableheaders' => [
-                'status' => get_string('table:status', 'quiz_livequizmonitor'),
-                'student' => get_string('table:student', 'quiz_livequizmonitor'),
-                'email' => get_string('table:email', 'quiz_livequizmonitor'),
-                'progress' => get_string('table:progress', 'quiz_livequizmonitor'),
-                'timeremaining' => get_string('table:timeremaining', 'quiz_livequizmonitor'),
-                'actions' => get_string('table:actions', 'quiz_livequizmonitor'),
-            ],
-            'showemailcolumn' => !empty($state->students) && !empty($state->students[0]->showemail),
-            'showactionscolumn' => true,
+            'tableheaders' => $tableheaders,
+            'showemailcolumn' => $showemailcolumn,
+            'showactionscolumn' => true, // Always show Actions column.
+            'actionscolumnlabel' => get_string('table:actions', 'quiz_livequizmonitor'),
             'filter' => $this->export_filter_context($state),
             'filterempty' => get_string('filter:empty', 'quiz_livequizmonitor'),
+            'sortascending' => get_string('asc'),
+            'sortdescending' => get_string('desc'),
         ];
     }
 
