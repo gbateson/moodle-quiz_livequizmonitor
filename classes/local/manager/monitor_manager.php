@@ -140,6 +140,18 @@ class monitor_manager {
             $row->hasnote = !empty($hasnotemap[$row->userid]);
         }
 
+        $useroverridecount = 0;
+        $canviewoverrides = overrides_manager::user_can_view_overrides($context);
+        if ($canviewoverrides) {
+            $hasoverridemap = overrides_manager::get_user_override_map((int) $quiz->id, $userids);
+            $hastimeoverridemap = overrides_manager::get_user_time_override_map((int) $quiz->id, $userids);
+            foreach ($rows as $row) {
+                $row->hasuseroverride = !empty($hasoverridemap[$row->userid]);
+                $row->hasusertimeoverride = !empty($hastimeoverridemap[$row->userid]);
+            }
+            $useroverridecount = count(array_filter($hasoverridemap));
+        }
+
         $onesessionactive = onesession_manager::is_active_for_quiz((int) $quiz->id, $quiz);
         $canunblock = $onesessionactive && onesession_manager::user_can_unblock($context);
 
@@ -177,6 +189,8 @@ class monitor_manager {
             'inprogresscount' => $inprogresscount,
             'onesessionactive' => $onesessionactive,
             'canunblock' => $canunblock,
+            'canviewoverrides' => $canviewoverrides,
+            'useroverridecount' => $useroverridecount,
         ];
 
         return $state;
@@ -387,6 +401,8 @@ class monitor_manager {
             'attemptendat' => $attemptendat,
             'canextend' => $canextend,
             'hasnote' => false,
+            'hasuseroverride' => false,
+            'hasusertimeoverride' => false,
             'isblocked' => false,
             'unblockactionenabled' => false,
         ];
