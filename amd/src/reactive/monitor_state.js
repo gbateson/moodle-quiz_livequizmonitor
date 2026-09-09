@@ -70,6 +70,7 @@ export const createInitialState = () => ({
             search: '',
             status: 'all',
             useroverride: false,
+            groupoverride: false,
         },
         canextend: false,
         inprogresscount: 0,
@@ -77,6 +78,7 @@ export const createInitialState = () => ({
         canunblock: false,
         canviewoverrides: false,
         useroverridecount: 0,
+        groupoverridecount: 0,
     },
     summary: emptySummary(),
     students: [],
@@ -129,6 +131,9 @@ class MonitorMutations {
         }
         if (payload.useroverridecount !== undefined) {
             stateManager.state.meta.useroverridecount = payload.useroverridecount;
+        }
+        if (payload.groupoverridecount !== undefined) {
+            stateManager.state.meta.groupoverridecount = payload.groupoverridecount;
         }
 
         // Update summary buckets in place so watchers receive summary.<bucket>:updated events.
@@ -213,6 +218,7 @@ class MonitorMutations {
         stateManager.state.meta.filters.search = '';
         stateManager.state.meta.filters.status = 'all';
         stateManager.state.meta.filters.useroverride = false;
+        stateManager.state.meta.filters.groupoverride = false;
         stateManager.setReadOnly(true);
     }
 

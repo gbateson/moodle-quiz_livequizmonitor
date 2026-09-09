@@ -122,8 +122,11 @@ class get_monitor_state extends external_api {
             'attemptendat' => new external_value(PARAM_INT, 'Attempt deadline timestamp', VALUE_OPTIONAL),
             'canextend' => new external_value(PARAM_BOOL, 'Viewer may extend time'),
             'hasnote' => new external_value(PARAM_BOOL, 'Student has a saved note'),
-            'hasuseroverride' => new external_value(PARAM_BOOL, 'Student has a user override for this quiz'),
-            'hasusertimeoverride' => new external_value(PARAM_BOOL, 'Student has a time-related user override (timeopen/timeclose/timelimit)'),
+            'hasuseroverride' => new external_value(PARAM_BOOL, 'Student has a user override'),
+            'hasusertimeoverride' => new external_value(PARAM_BOOL, 'Student has a time-related user override'),
+            'hasgroupoverride' => new external_value(PARAM_BOOL, 'Student belongs to a group with an override'),
+            'hasgrouptimeoverride' => new external_value(PARAM_BOOL, 'Student belongs to a group with a time-related override'),
+            'hastimeoverride' => new external_value(PARAM_BOOL, 'Student has a time-related override, either user or group'),
             'isblocked' => new external_value(PARAM_BOOL, 'Student blocked by onesession'),
             'unblockactionenabled' => new external_value(PARAM_BOOL, 'Unblock action enabled for viewer'),
         ]);
@@ -141,6 +144,7 @@ class get_monitor_state extends external_api {
             'canunblock' => new external_value(PARAM_BOOL, 'Viewer may unblock attempts'),
             'canviewoverrides' => new external_value(PARAM_BOOL, 'Viewer may see override information'),
             'useroverridecount' => new external_value(PARAM_INT, 'Students with a user override'),
+            'groupoverridecount' => new external_value(PARAM_INT, 'Students with a (relevant) group override'),
             'summary' => new external_single_structure([
                 'notstarted' => $statuscount,
                 'inprogress' => $statuscount,
@@ -179,6 +183,9 @@ class get_monitor_state extends external_api {
                 'hasnote' => (bool) ($row->hasnote ?? false),
                 'hasuseroverride' => (bool) ($row->hasuseroverride ?? false),
                 'hasusertimeoverride' => (bool) ($row->hasusertimeoverride ?? false),
+                'hasgroupoverride' => (bool) ($row->hasgroupoverride ?? false),
+                'hasgrouptimeoverride' => (bool) ($row->hasgrouptimeoverride ?? false),
+                'hastimeoverride' => (bool) ($row->hastimeoverride ?? false),
                 'isblocked' => (bool) ($row->isblocked ?? false),
                 'unblockactionenabled' => (bool) ($row->unblockactionenabled ?? false),
             ];
@@ -208,6 +215,7 @@ class get_monitor_state extends external_api {
             'canunblock' => (bool) ($state->canunblock ?? false),
             'canviewoverrides' => (bool) ($state->canviewoverrides ?? false),
             'useroverridecount' => (int) ($state->useroverridecount ?? 0),
+            'groupoverridecount' => (int) ($state->groupoverridecount ?? 0),
             'summary' => [
                 'notstarted' => (array) $summary->notstarted,
                 'inprogress' => (array) $summary->inprogress,

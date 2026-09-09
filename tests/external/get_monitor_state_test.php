@@ -191,6 +191,45 @@ final class get_monitor_state_test extends advanced_testcase {
     }
 
     /**
+     * Poll payload includes hasgroupoverride/hasgrouptimeoverride/groupoverridecount,
+     * and hastimeoverride fires from a group override even with no user override.
+     */
+    public function test_execute_includes_group_override_info(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $teacher = $generator->create_user();
+        $student = $generator->create_user();
+        $generator->enrol_user($teacher->id, $course->id, 'editingteacher');
+        $generator->enrol_user($student->id, $course->id, 'student');
+
+        $group = $generator->create_group(['courseid' => $course->id]);
+        $generator->create_group_member(['groupid' => $group->id, 'userid' => $student->id]);
+
+        $quizgenerator = $generator->get_plugin_generator('mod_quiz');
+        $quiz = $quizgenerator->create_instance(['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('quiz', $quiz->id, $course->id, false, MUST_EXIST);
+
+        $DB->insert_record('quiz_overrides', (object) [
+            'quiz' => $quiz->id,
+            'groupid' => $group->id,
+            'timeclose' => time() + 3600,
+        ]);
+
+        $this->setUser($teacher);
+        $result = get_monitor_state::execute($cm->id, 0);
+
+        $this->assertSame(1, $result['groupoverridecount']);
+        $this->assertFalse($result['students'][0]['hasuseroverride']);
+        $this->assertTrue($result['students'][0]['hasgroupoverride']);
+        $this->assertTrue($result['students'][0]['hasgrouptimeoverride']);
+        $this->assertTrue($result['students'][0]['hastimeoverride']);
+    }
+
+    /**
      * Student without report capability cannot call the external function.
      */
     public function test_execute_requires_capability(): void {

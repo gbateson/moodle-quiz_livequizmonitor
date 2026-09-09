@@ -232,6 +232,106 @@ final class overrides_manager_test extends advanced_testcase {
     }
 
     /**
+     * A student in a group with an override is flagged; a student in a
+     * group with no override, or in no group at all, is not.
+     */
+    public function test_get_student_group_override_map_resolves_membership(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        $generator = $this->getDataGenerator();
+        [$course, $quiz, , $student1, $student2] = $this->create_quiz_with_students();
+
+        $overriddengroup = $generator->create_group(['courseid' => $course->id]);
+        $plaingroup = $generator->create_group(['courseid' => $course->id]);
+        $generator->create_group_member(['groupid' => $overriddengroup->id, 'userid' => $student1->id]);
+        $generator->create_group_member(['groupid' => $plaingroup->id, 'userid' => $student2->id]);
+
+        $DB->insert_record('quiz_overrides', (object) [
+            'quiz' => $quiz->id,
+            'groupid' => $overriddengroup->id,
+            'timelimit' => 1800,
+        ]);
+
+        $map = overrides_manager::get_student_group_override_map(
+            (int) $quiz->id,
+            (int) $course->id,
+            [$student1->id, $student2->id]
+        );
+
+        $this->assertTrue($map[$student1->id]);
+        $this->assertFalse($map[$student2->id]);
+    }
+
+    /**
+     * A student in TWO groups, only one of which has an override, is still
+     * flagged - per the simplified "any group override counts" design, we
+     * don't try to resolve which override core would actually apply.
+     */
+    public function test_get_student_group_override_map_any_group_counts(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        $generator = $this->getDataGenerator();
+        [$course, $quiz, , $student1] = $this->create_quiz_with_students();
+
+        $overriddengroup = $generator->create_group(['courseid' => $course->id]);
+        $plaingroup = $generator->create_group(['courseid' => $course->id]);
+        $generator->create_group_member(['groupid' => $overriddengroup->id, 'userid' => $student1->id]);
+        $generator->create_group_member(['groupid' => $plaingroup->id, 'userid' => $student1->id]);
+
+        $DB->insert_record('quiz_overrides', (object) [
+            'quiz' => $quiz->id,
+            'groupid' => $overriddengroup->id,
+            'attempts' => 5,
+        ]);
+
+        $map = overrides_manager::get_student_group_override_map((int) $quiz->id, (int) $course->id, [$student1->id]);
+        $this->assertTrue($map[$student1->id]);
+    }
+
+    /**
+     * get_student_group_time_override_map ignores non-time-related group overrides.
+     */
+    public function test_get_student_group_time_override_map_ignores_non_time_columns(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        $generator = $this->getDataGenerator();
+        [$course, $quiz, , $student1] = $this->create_quiz_with_students();
+
+        $group = $generator->create_group(['courseid' => $course->id]);
+        $generator->create_group_member(['groupid' => $group->id, 'userid' => $student1->id]);
+
+        $DB->insert_record('quiz_overrides', (object) [
+            'quiz' => $quiz->id,
+            'groupid' => $group->id,
+            'attempts' => 5,
+        ]);
+
+        $anymap = overrides_manager::get_student_group_override_map((int) $quiz->id, (int) $course->id, [$student1->id]);
+        $timemap = overrides_manager::get_student_group_time_override_map(
+            (int) $quiz->id,
+            (int) $course->id,
+            [$student1->id]
+        );
+
+        $this->assertTrue($anymap[$student1->id]);
+        $this->assertFalse($timemap[$student1->id]);
+    }
+
+    /**
+     * No groups in the course at all: returns all-false without erroring.
+     */
+    public function test_get_student_group_override_map_no_groups(): void {
+        $this->resetAfterTest();
+        [$course, $quiz, , $student1] = $this->create_quiz_with_students();
+
+        $map = overrides_manager::get_student_group_override_map((int) $quiz->id, (int) $course->id, [$student1->id]);
+        $this->assertFalse($map[$student1->id]);
+    }
+
+    /**
      * Capability gate: only users with mod/quiz:manageoverrides may view overrides.
      */
     public function test_user_can_view_overrides_respects_capability(): void {

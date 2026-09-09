@@ -17,7 +17,10 @@
             "canviewoverrides": true,
             "useroverridelabel": "Has extension",
             "useroverridecount": 1,
-            "useroverrideactive": false
+            "useroverrideactive": false,
+            "groupoverridelabel": "With group override",
+            "groupoverridecount": 1,
+            "groupoverrideactive": false
         }
     }
 }}
@@ -46,6 +49,15 @@
                     data-flag="useroverride"
                     aria-pressed="{{#filter.useroverrideactive}}true{{/filter.useroverrideactive}}{{^filter.useroverrideactive}}false{{/filter.useroverrideactive}}">
                 {{filter.useroverridelabel}} (<span data-filter-count="useroverride">{{filter.useroverridecount}}</span>)
+            </button>
+        {{/filter.canviewoverrides}}
+        {{#filter.canviewoverrides}}
+            <button type="button"
+                    class="btn{{#filter.groupoverrideactive}} btn-primary{{/filter.groupoverrideactive}}{{^filter.groupoverrideactive}} btn-outline-secondary{{/filter.groupoverrideactive}}"
+                    data-action="filter-flag"
+                    data-flag="groupoverride"
+                    aria-pressed="{{#filter.groupoverrideactive}}true{{/filter.groupoverrideactive}}{{^filter.groupoverrideactive}}false{{/filter.groupoverrideactive}}">
+                {{filter.groupoverridelabel}} (<span data-filter-count="groupoverride">{{filter.groupoverridecount}}</span>)
             </button>
         {{/filter.canviewoverrides}}
         <button type="button" class="btn btn-outline-secondary" data-action="clear-filters">

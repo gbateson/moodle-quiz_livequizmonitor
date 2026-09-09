@@ -146,9 +146,103 @@ class overrides_manager {
      *
      * @param int $quizid Quiz instance id.
      * @param int[] $groupids Group ids.
-     * @return array<int, bool> Map groupid => has a group override.
+     * @return array<int, bool> Map groupid => has a group override (any field).
      */
     public static function get_group_override_map(int $quizid, array $groupids): array {
         return self::get_override_map($quizid, 'groupid', $groupids);
+    }
+
+    /**
+     * Load has-time-related-group-override flags for a set of groups in one quiz.
+     *
+     * @param int $quizid Quiz instance id.
+     * @param int[] $groupids Group ids.
+     * @return array<int, bool> Map groupid => has a time-related group override.
+     */
+    public static function get_group_time_override_map(int $quizid, array $groupids): array {
+        return self::get_override_map($quizid, 'groupid', $groupids, self::TIME_COLUMNS);
+    }
+
+    /**
+     * Resolve, per student, whether they belong to a group that has an override.
+     *
+     * Deliberately simple: if a student is in several groups with different
+     * overrides, this does not attempt to work out which one core would
+     * actually apply - it just flags "belongs to a group with an override".
+     * Callers that also track user overrides should suppress this flag for
+     * students who have one, since a user override always takes precedence
+     * over group overrides in core.
+     *
+     * @param int $quizid Quiz instance id.
+     * @param int $courseid Course id (to enumerate groups).
+     * @param int[] $userids Student user ids.
+     * @param string[] $valuecolumns Which VALUE_COLUMNS count as "a value". Defaults to all of them.
+     * @return array<int, bool> Map userid => belongs to at least one overridden group.
+     */
+    protected static function get_student_group_flag_map(
+        int $quizid,
+        int $courseid,
+        array $userids,
+        array $valuecolumns = self::VALUE_COLUMNS
+    ): array {
+        global $DB;
+
+        $map = array_fill_keys($userids, false);
+        if ($userids === []) {
+            return $map;
+        }
+
+        $groups = groups_get_all_groups($courseid, 0, 0, 'g.id');
+        $groupids = array_map('intval', array_keys($groups));
+        if ($groupids === []) {
+            return $map;
+        }
+
+        $groupoverridemap = self::get_override_map($quizid, 'groupid', $groupids, $valuecolumns);
+        $overriddengroupids = array_keys(array_filter($groupoverridemap));
+        if ($overriddengroupids === []) {
+            return $map;
+        }
+
+        [$selectgroups, $groupparams] = $DB->get_in_or_equal($overriddengroupids, SQL_PARAMS_NAMED, 'group');
+        [$selectusers, $userparams] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED, 'user');
+        $params = array_merge($groupparams, $userparams);
+
+        $memberuserids = $DB->get_fieldset_select(
+            'groups_members',
+            'DISTINCT userid',
+            "groupid $selectgroups AND userid $selectusers",
+            $params
+        );
+
+        foreach ($memberuserids as $userid) {
+            $map[(int) $userid] = true;
+        }
+
+        return $map;
+    }
+
+    /**
+     * Load has-group-override flags for a set of students in one quiz.
+     *
+     * @param int $quizid Quiz instance id.
+     * @param int $courseid Course id (to enumerate groups).
+     * @param int[] $userids Student user ids.
+     * @return array<int, bool> Map userid => belongs to a group with an override (any field).
+     */
+    public static function get_student_group_override_map(int $quizid, int $courseid, array $userids): array {
+        return self::get_student_group_flag_map($quizid, $courseid, $userids);
+    }
+
+    /**
+     * Load has-time-related-group-override flags for a set of students in one quiz.
+     *
+     * @param int $quizid Quiz instance id.
+     * @param int $courseid Course id (to enumerate groups).
+     * @param int[] $userids Student user ids.
+     * @return array<int, bool> Map userid => belongs to a group with a time-related override.
+     */
+    public static function get_student_group_time_override_map(int $quizid, int $courseid, array $userids): array {
+        return self::get_student_group_flag_map($quizid, $courseid, $userids, self::TIME_COLUMNS);
     }
 }

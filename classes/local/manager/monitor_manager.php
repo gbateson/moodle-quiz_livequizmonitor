@@ -141,15 +141,40 @@ class monitor_manager {
         }
 
         $useroverridecount = 0;
+        $groupoverridecount = 0;
         $canviewoverrides = overrides_manager::user_can_view_overrides($context);
         if ($canviewoverrides) {
             $hasoverridemap = overrides_manager::get_user_override_map((int) $quiz->id, $userids);
             $hastimeoverridemap = overrides_manager::get_user_time_override_map((int) $quiz->id, $userids);
+            $hasgroupoverridemap = overrides_manager::get_student_group_override_map(
+                (int) $quiz->id,
+                (int) $course->id,
+                $userids
+            );
+            $hasgrouptimeoverridemap = overrides_manager::get_student_group_time_override_map(
+                (int) $quiz->id,
+                (int) $course->id,
+                $userids
+            );
             foreach ($rows as $row) {
                 $row->hasuseroverride = !empty($hasoverridemap[$row->userid]);
                 $row->hasusertimeoverride = !empty($hastimeoverridemap[$row->userid]);
+
+                // A user override always takes precedence over group overrides in core, so a
+                // student who has one is not counted as having a (relevant) group override here.
+                $row->hasgroupoverride = !$row->hasuseroverride && !empty($hasgroupoverridemap[$row->userid]);
+                $row->hasgrouptimeoverride = !$row->hasuseroverride && !empty($hasgrouptimeoverridemap[$row->userid]);
+
+                // Combined flag used to trigger the (single, generic) timer-column badge.
+                $row->hastimeoverride = $row->hasusertimeoverride || $row->hasgrouptimeoverride;
+
+                if ($row->hasuseroverride) {
+                    $useroverridecount++;
+                }
+                if ($row->hasgroupoverride) {
+                    $groupoverridecount++;
+                }
             }
-            $useroverridecount = count(array_filter($hasoverridemap));
         }
 
         $onesessionactive = onesession_manager::is_active_for_quiz((int) $quiz->id, $quiz);
@@ -191,6 +216,7 @@ class monitor_manager {
             'canunblock' => $canunblock,
             'canviewoverrides' => $canviewoverrides,
             'useroverridecount' => $useroverridecount,
+            'groupoverridecount' => $groupoverridecount,
         ];
 
         return $state;
@@ -403,6 +429,9 @@ class monitor_manager {
             'hasnote' => false,
             'hasuseroverride' => false,
             'hasusertimeoverride' => false,
+            'hasgroupoverride' => false,
+            'hasgrouptimeoverride' => false,
+            'hastimeoverride' => false,
             'isblocked' => false,
             'unblockactionenabled' => false,
         ];
