@@ -47,6 +47,10 @@
             "timeremaining": "Time remaining",
             "actions": "Actions"
         },
+        "columnlabels": {
+            "student": {"hide": "Hide Student column", "show": "Show Student column"}
+        },
+        "hiddencolumnsjson": "[]",
         "students": []
     }
 }}
@@ -64,7 +68,8 @@
      data-actions-menu-label="{{actionsmenulabel}}"
      data-canextend="{{#canextend}}1{{/canextend}}{{^canextend}}0{{/canextend}}"
      data-onesession-active="{{#onesessionactive}}1{{/onesessionactive}}{{^onesessionactive}}0{{/onesessionactive}}"
-     data-canunblock="{{#canunblock}}1{{/canunblock}}{{^canunblock}}0{{/canunblock}}">
+     data-canunblock="{{#canunblock}}1{{/canunblock}}{{^canunblock}}0{{/canunblock}}"
+     data-hidden-columns="{{hiddencolumnsjson}}">
 
     <div class="livequizmonitor-header d-flex flex-wrap align-items-center justify-content-between mb-3">
         <div>
