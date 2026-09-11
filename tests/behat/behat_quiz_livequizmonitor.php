@@ -26,6 +26,7 @@
 // NOTE: no MOODLE_INTERNAL used, this file may be required by behat before including /config.php.
 require_once(__DIR__ . '/../../../../../../lib/behat/behat_base.php');
 
+use Behat\Mink\Exception\ExpectationException;
 use Moodle\BehatExtension\Exception\SkippedException;
 
 /**
@@ -179,5 +180,91 @@ class behat_quiz_livequizmonitor extends behat_base {
         $userid = $DB->get_field('user', 'id', ['username' => $username], MUST_EXIST);
         $groupid = $DB->get_field('groups', 'id', ['name' => $groupname], MUST_EXIST);
         groups_remove_member($groupid, $userid);
+    }
+
+    /**
+     * Restrict a quiz to members of one group via an activity access restriction.
+     *
+     * Driving core's availability form through the browser proved unreliable here: the
+     * "Group" select matched a hidden template row, so the condition silently saved as
+     * "(Any group)" and let every student through. This writes the same condition the form
+     * would produce, keeping the scenario about the monitor rather than about that form.
+     *
+     * @Given /^quiz "(?P<quizname>[^"]*)" is restricted to group "(?P<groupname>[^"]*)"$/
+     * @param string $quizname Quiz activity name.
+     * @param string $groupname Group name.
+     */
+    public function quiz_is_restricted_to_group(string $quizname, string $groupname): void {
+        global $DB;
+
+        $quiz = $DB->get_record('quiz', ['name' => $quizname], '*', MUST_EXIST);
+        $cm = get_coursemodule_from_instance('quiz', $quiz->id, $quiz->course, false, MUST_EXIST);
+        $groupid = $DB->get_field('groups', 'id', ['name' => $groupname, 'courseid' => $quiz->course], MUST_EXIST);
+
+        // Let core build the condition and tree so this does not hard-code the JSON shape.
+        $availability = json_encode(\core_availability\tree::get_root_json(
+            [\availability_group\condition::get_json((int) $groupid)],
+            \core_availability\tree::OP_AND,
+            false
+        ));
+
+        $DB->set_field('course_modules', 'availability', $availability, ['id' => $cm->id]);
+        rebuild_course_cache($quiz->course, true);
+    }
+
+    /**
+     * Check how many user ids the cached roster holds for a quiz.
+     *
+     * Reads the allowedstudents cache directly, to show the roster really is cached rather
+     * than rebuilt on every poll. Assumes an unfiltered monitor, so the key uses group 0.
+     *
+     * @Then /^the live monitor roster cache holds "(?P<count>\d+)" user ids for quiz "(?P<quizname>[^"]*)"$/
+     * @param int $count Expected number of cached user ids.
+     * @param string $quizname Quiz activity name.
+     */
+    public function the_live_monitor_roster_cache_holds_user_ids(int $count, string $quizname): void {
+        $ids = $this->get_cached_roster($quizname);
+
+        if ($ids === false) {
+            throw new ExpectationException(
+                'Nothing is cached for quiz "' . $quizname . '", expected ' . $count . ' user ids',
+                $this->getSession()
+            );
+        }
+
+        if (count($ids) !== $count) {
+            throw new ExpectationException(
+                'The roster cache holds ' . count($ids) . ' user ids for quiz "' . $quizname . '", expected ' . $count,
+                $this->getSession()
+            );
+        }
+    }
+
+    /**
+     * Read the cached roster for an unfiltered quiz monitor.
+     *
+     * @param string $quizname Quiz activity name.
+     * @return array|false Cached user ids, or false when nothing is cached.
+     */
+    private function get_cached_roster(string $quizname) {
+        global $DB;
+
+        $quiz = $DB->get_record('quiz', ['name' => $quizname], '*', MUST_EXIST);
+        $cm = get_coursemodule_from_instance('quiz', $quiz->id, $quiz->course, false, MUST_EXIST);
+
+        return cache::make('quiz_livequizmonitor', 'allowedstudents')->get($cm->id . '_0');
+    }
+
+    /**
+     * Discard the cached allowed-student roster.
+     *
+     * The roster is cached for the ttl set in the plugin's db/caches.php, so a scenario that
+     * changes enrolment or group membership and then checks the next poll must discard it
+     * rather than wait out the whole TTL.
+     *
+     * @Given /^the live monitor roster cache is purged$/
+     */
+    public function the_live_monitor_roster_cache_is_purged(): void {
+        cache::make('quiz_livequizmonitor', 'allowedstudents')->purge();
     }
 }

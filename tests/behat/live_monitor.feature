@@ -172,14 +172,43 @@ Feature: Live quiz monitor report
     When the following "course enrolments" exist:
       | user     | course | role    |
       | student3 | C1     | student |
+    # The roster is cached, so discard it rather than wait out the TTL.
+    And the live monitor roster cache is purged
     And I wait "6" seconds
     Then I should see "Chris Cohort"
+
+  @javascript @cohortsync
+  Scenario: Roster is served from cache until it is discarded
+    Given the following "users" exist:
+      | username | firstname | lastname | email             |
+      | student3 | Chris     | Cohort   | student3@test.com |
+    When I am on the live monitor report for "Quiz 1"
+    Then I should see "Sam Student"
+    And I should not see "Chris Cohort"
+    # Opening the report populates the roster cache.
+    And the live monitor roster cache holds "2" user ids for quiz "Quiz 1"
+
+    # A new enrolment must not reach the monitor while the cached roster is still live.
+    When the following "course enrolments" exist:
+      | user     | course | role    |
+      | student3 | C1     | student |
+    And I wait "6" seconds
+    Then I should not see "Chris Cohort"
+    And the live monitor roster cache holds "2" user ids for quiz "Quiz 1"
+
+    # Discarding the cached roster lets the next poll rebuild it and pick the student up.
+    When the live monitor roster cache is purged
+    And I wait "6" seconds
+    Then I should see "Chris Cohort"
+    And the live monitor roster cache holds "3" user ids for quiz "Quiz 1"
 
   @javascript @cohortsync
   Scenario: Unenrolled student row disappears without reload
     Given I am on the live monitor report for "Quiz 1"
     Then I should see "Alex Other"
     When I unenrol user "student2" from course "C1"
+    # The roster is cached, so discard it rather than wait out the TTL.
+    And the live monitor roster cache is purged
     And I wait "6" seconds
     Then I should not see "Alex Other"
 

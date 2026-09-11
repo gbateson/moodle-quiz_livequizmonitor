@@ -58,13 +58,9 @@ Feature: Respect access restrictions in Live Quiz Monitor
 
   @javascript
   Scenario: Confirm group access restrictions filter students
-    # Set activity access restriction directly on quiz editing page
-    Given I am on the "Quiz-1" "quiz activity editing" page logged in as "teacher1"
-    And I expand all fieldsets
-    And I click on "Add restriction..." "button"
-    And I click on "Group" "button" in the "Add restriction..." "dialogue"
-    And I set the field "Group" in the "Restrict access" "fieldset" to "Group-12"
-    And I press "Save and display"
+    # Restrict the quiz to Group-12 members only.
+    Given quiz "Quiz-1" is restricted to group "Group-12"
+    And I log in as "teacher1"
 
     # Confirm Live Monitor immediately filters out non-group members
     When I am on the live monitor report for "Quiz-1"
@@ -75,13 +71,9 @@ Feature: Respect access restrictions in Live Quiz Monitor
 
   @javascript
   Scenario: Group membership changes update the monitor automatically without reload
-    # Set activity access restriction directly on quiz editing page
-    Given I am on the "Quiz-1" "quiz activity editing" page logged in as "teacher1"
-    And I expand all fieldsets
-    And I click on "Add restriction..." "button"
-    And I click on "Group" "button" in the "Add restriction..." "dialogue"
-    And I set the field "Group" in the "Restrict access" "fieldset" to "Group-12"
-    And I press "Save and return to course"
+    # Restrict the quiz to Group-12 members only.
+    Given quiz "Quiz-1" is restricted to group "Group-12"
+    And I log in as "teacher1"
 
     When I am on the live monitor report for "Quiz-1"
     Then I should see "Student One"
@@ -91,10 +83,14 @@ Feature: Respect access restrictions in Live Quiz Monitor
 
     # Add Student Three to the restricted group and confirm they appear in the monitor.
     When user "student3" is added to group "Group-12"
+    # The roster is cached, so discard it rather than wait out the TTL.
+    And the live monitor roster cache is purged
     And I wait "6" seconds
     Then I should see "Student Three"
 
     # Remove Student One from the restricted group and confirm they disappear from the monitor.
     When user "student1" is removed from group "Group-12"
+    # The roster is cached, so discard it rather than wait out the TTL.
+    And the live monitor roster cache is purged
     And I wait "6" seconds
     Then I should not see "Student One"

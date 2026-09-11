@@ -25,6 +25,7 @@
 namespace quiz_livequizmonitor\local\manager;
 
 use stdClass;
+use cache;
 use context_module;
 use cm_info;
 use core_availability\info_module;
@@ -101,6 +102,9 @@ class monitor_manager {
      */
     public static function get_state(stdClass $course, cm_info|stdClass $cm, stdClass $quiz, int $groupid = 0): stdClass {
         global $DB;
+
+        // Normalise once here so the roster and availability lookups reuse cached modinfo.
+        $cm = self::normalise_cm($cm);
 
         $context = context_module::instance($cm->id);
         $now = time();
@@ -189,11 +193,9 @@ class monitor_manager {
     /**
      * Get the users who may attempt this quiz, honouring activity access restrictions.
      *
-     * The availability filter is folded into the enrolment query via
-     * info_module::get_user_list_sql(), so the roster costs one query and is never stale.
-     *
-     * Suspended enrolments are deliberately included: an invigilator still needs to see
-     * a student whose enrolment changes while their attempt is in progress.
+     * The roster ids come from {@see get_allowed_student_ids()} and so may be out of date by
+     * up to the ttl on the allowedstudents cache in db/caches.php; the user fields
+     * themselves are always current.
      *
      * @param cm_info|stdClass $cm Course module record.
      * @param context_module $context Module context.
@@ -203,30 +205,143 @@ class monitor_manager {
     public static function get_allowed_students(cm_info|stdClass $cm, context_module $context, int $groupid): array {
         global $DB;
 
+        $ids = self::get_allowed_student_ids($cm, $context, $groupid);
+        if ($ids === []) {
+            return [];
+        }
+
+        [$insql, $params] = $DB->get_in_or_equal($ids, SQL_PARAMS_NAMED, 'rosteruid');
+
+        // No table alias here, so the name fields must be emitted as bare column names.
+        $namefields = fields::for_name()->get_sql('', false, '', '', false)->selects;
+
+        // Rows are ordered by sort_student_rows() later, so no ORDER BY is needed here.
+        return $DB->get_records_select(
+            'user',
+            "id $insql AND deleted = 0",
+            $params,
+            '',
+            "id, email, username, idnumber, $namefields"
+        );
+    }
+
+    /**
+     * Get the ids of users who may attempt this quiz, honouring activity access restrictions.
+     *
+     * The roster is the same for every viewer, because get_enrolled_sql() matches on a
+     * capability rather than a user and the visible-group choice is already folded into
+     * $groupid by the caller, so one cache entry serves every invigilator on this quiz and
+     * group. Entries expire on the ttl set for the allowedstudents cache in db/caches.php
+     * rather than being invalidated by events: enrolment, role, group and profile changes
+     * therefore take up to that long to show up in the report.
+     *
+     * @param cm_info|stdClass $cm Course module record.
+     * @param context_module $context Module context.
+     * @param int $groupid Active group id (0 = all groups).
+     * @return int[] Allowed user ids.
+     */
+    public static function get_allowed_student_ids(cm_info|stdClass $cm, context_module $context, int $groupid): array {
+        global $DB;
+
+        $cache = cache::make('quiz_livequizmonitor', 'allowedstudents');
+        $key = $cm->id . '_' . $groupid;
+
+        $ids = $cache->get($key);
+        if ($ids === false) {
+            [$sql, $params] = self::build_roster_sql($cm, $context, $groupid);
+            $ids = array_map('intval', array_keys($DB->get_records_sql($sql, $params)));
+            $cache->set($key, $ids);
+        }
+
+        return $ids;
+    }
+
+    /**
+     * Whether one user may attempt this quiz, honouring activity access restrictions.
+     *
+     * This deliberately bypasses the roster cache so that actions which change data are
+     * checked against the current state rather than against a roster that may be up to one
+     * cache ttl old.
+     *
+     * @param int $userid Target user id.
+     * @param cm_info|stdClass $cm Course module record.
+     * @param context_module $context Module context.
+     * @param int $groupid Active group id (0 = all groups).
+     * @return bool
+     */
+    public static function is_allowed_student(
+        int $userid,
+        cm_info|stdClass $cm,
+        context_module $context,
+        int $groupid
+    ): bool {
+        global $DB;
+
+        [$sql, $params] = self::build_roster_sql($cm, $context, $groupid, $userid);
+
+        return $DB->record_exists_sql($sql, $params);
+    }
+
+    /**
+     * Build the query selecting the ids of users who may attempt this quiz.
+     *
+     * The availability filter is folded into the enrolment query via
+     * info_module::get_user_list_sql(), so the roster costs one query.
+     *
+     * Suspended enrolments are deliberately included: an invigilator still needs to see
+     * a student whose enrolment changes while their attempt is in progress.
+     *
+     * @param cm_info|stdClass $cm Course module record.
+     * @param context_module $context Module context.
+     * @param int $groupid Active group id (0 = all groups).
+     * @param int|null $userid Restrict the query to this user, for a single membership test.
+     * @return array{0: string, 1: array} SQL and parameters.
+     */
+    protected static function build_roster_sql(
+        cm_info|stdClass $cm,
+        context_module $context,
+        int $groupid,
+        ?int $userid = null
+    ): array {
         $onlyactive = false;
 
         [$enrolledsql, $params] = get_enrolled_sql($context, 'mod/quiz:attempt', $groupid, $onlyactive);
 
-        $namefields = fields::for_name()->get_sql('u', false, '', '', false)->selects;
-        $sql = "SELECT u.id, u.email, $namefields
+        $sql = "SELECT u.id
                   FROM {user} u
                   JOIN ($enrolledsql) e ON e.id = u.id
                  WHERE u.deleted = 0";
 
         // Fold the activity's access restrictions into the same query.
-        if ($cm instanceof stdClass) {
-            $cm = cm_info::create($cm);
-        }
-        $info = new info_module($cm);
+        $info = new info_module(self::normalise_cm($cm));
         [$usersql, $userparams] = $info->get_user_list_sql($onlyactive);
         if ($usersql !== '') {
             $sql .= " AND u.id IN ($usersql)";
             $params = array_merge($params, $userparams);
         }
 
-        $sql .= ' ORDER BY u.lastname ASC, u.firstname ASC';
+        // Restrict the result to one user. The enrolment and availability subqueries are still
+        // evaluated over the whole cohort first, so this is cheaper than building the roster
+        // but is not a primary-key lookup.
+        if ($userid !== null) {
+            $sql .= ' AND u.id = :rosteruserid';
+            $params['rosteruserid'] = $userid;
+        }
 
-        return $DB->get_records_sql($sql, $params);
+        return [$sql, $params];
+    }
+
+    /**
+     * Normalise a course module record to cm_info.
+     *
+     * @param cm_info|stdClass $cm Course module record or cached cm_info.
+     * @return cm_info
+     */
+    protected static function normalise_cm(cm_info|stdClass $cm): cm_info {
+        if ($cm instanceof cm_info) {
+            return $cm;
+        }
+        return cm_info::create($cm);
     }
 
     /**

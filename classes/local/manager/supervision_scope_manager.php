@@ -55,6 +55,10 @@ class supervision_scope_manager {
     /**
      * Check whether a user is in the obliged cohort visible under the group filter.
      *
+     * This asks monitor_manager the same question the report itself asks, so the activity's
+     * access restrictions apply here too: a student the invigilator cannot see on the monitor
+     * cannot be acted on through the external endpoints either.
+     *
      * @param int $userid Target student user id.
      * @param context_module $context Module context.
      * @param int $groupid Active group id (0 resolves to activity default).
@@ -71,7 +75,6 @@ class supervision_scope_manager {
             $groupid = groups_get_activity_group($cm, true) ?: 0;
         }
 
-        $students = get_enrolled_users($context, 'mod/quiz:attempt', $groupid, 'u.id');
-        return isset($students[$userid]);
+        return monitor_manager::is_allowed_student($userid, $cm, $context, $groupid);
     }
 }

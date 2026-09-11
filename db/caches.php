@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Version information for the live quiz monitor report.
+ * Cache definitions used internally by the live quiz monitor.
  *
  * @package   quiz_livequizmonitor
  * @copyright 2026 SSYSTEMS
@@ -24,8 +24,14 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version   = 2026091100;
-$plugin->requires  = 2024100700;
-$plugin->component = 'quiz_livequizmonitor';
-$plugin->maturity  = MATURITY_ALPHA;
-$plugin->release   = 'v0.1.4';
+$definitions = [
+    // Allowed student ids keyed by course module and group, refreshed on a short TTL.
+    // The roster does not depend on the viewer, so one entry serves every invigilator
+    // watching the same quiz and group. See monitor_manager::get_allowed_student_ids().
+    'allowedstudents' => [
+        'mode' => cache_store::MODE_APPLICATION,
+        'simplekeys' => true,
+        'simpledata' => true,
+        'ttl' => 60,
+    ],
+];
