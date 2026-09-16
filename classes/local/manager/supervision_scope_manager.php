@@ -71,7 +71,7 @@ class supervision_scope_manager {
             $groupid = groups_get_activity_group($cm, true) ?: 0;
         }
 
-        $students = get_enrolled_users($context, 'mod/quiz:attempt', $groupid, 'u.id');
+        $students = monitor_manager::get_allowed_students($cm, $context, $groupid, $userid);
         return isset($students[$userid]);
     }
 }
