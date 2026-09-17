@@ -81,6 +81,7 @@ export const createInitialState = () => ({
         sortdirection: 'asc',
         canextend: false,
         inprogresscount: 0,
+        idlecount: 0,
         onesessionactive: false,
         canunblock: false,
         canviewlogs: false,
@@ -128,6 +129,9 @@ class MonitorMutations {
         }
         if (payload.inprogresscount !== undefined) {
             stateManager.state.meta.inprogresscount = payload.inprogresscount;
+        }
+        if (payload.idlecount !== undefined) {
+            stateManager.state.meta.idlecount = payload.idlecount;
         }
         if (payload.onesessionactive !== undefined) {
             stateManager.state.meta.onesessionactive = payload.onesessionactive;

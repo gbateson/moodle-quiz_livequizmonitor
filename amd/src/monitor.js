@@ -271,20 +271,39 @@ class MonitorComponent extends BaseComponent {
      * Open bulk extend modal and refresh on success.
      */
     async openBulkExtendModal() {
-        const state = this.getState();
-        const summary = state?.summary ?? {};
-        const inprogresscount = (summary.inprogress?.count ?? 0) + (summary.idle?.count ?? 0)
-                                || state?.meta?.inprogresscount
-                                || 0;
         const response = await showExtendModal({
             mode: 'bulk',
             cmid: this.cmid,
             groupid: this.groupid,
-            inprogresscount,
+            inprogresscount: this.getInProgressCount(true),
         });
         if (response) {
             this.poll();
         }
+    }
+
+    /**
+     * Fetch the inprogress count from the current state.
+     *
+     * @param {boolean} [checkmeta=false] - Whether to fall back to
+     *   state.meta.inprogresscount when the summary counts are zero.
+     * @returns {number} The resolved in-progress count, or 0 if none is available.
+     */
+    getInProgressCount(checkmeta) {
+        // Shortcuts to state and summary objects.
+        const state = this.getState() ?? {};
+        const summary = state.summary ?? {};
+        // If the summary counts are available, use those.
+        const count = (summary.inprogress?.count ?? 0) + (summary.idle?.count ?? 0);
+        if (count) {
+            return count;
+        }
+        // If the meta values is available, use those.
+        if (checkmeta) {
+            return (state.meta?.inprogresscount ?? 0) + (state.meta?.idlecount ?? 0);
+        }
+        // No counts are available, return 0.
+        return 0;
     }
 
     /**
@@ -362,13 +381,10 @@ class MonitorComponent extends BaseComponent {
      * Enable or disable bulk extend button from reactive in-progress count.
      */
     renderBulkExtendButton() {
-        const button = this.getElement(this.selectors.EXTENDBULK);
-        if (!button) {
-            return;
+        const btn = this.getElement(this.selectors.EXTENDBULK);
+        if (btn) {
+            btn.disabled = this.getInProgressCount(false) === 0;
         }
-        const summary = this.getState()?.summary ?? {};
-        const count = (summary.inprogress?.count ?? 0) + (summary.idle?.count ?? 0);
-        button.disabled = count === 0;
     }
 
     /**
@@ -653,8 +669,9 @@ class MonitorComponent extends BaseComponent {
 
         const statusRank = {
             inprogress: 0,
-            notstarted: 1,
-            completed: 2,
+            idle: 1,
+            notstarted: 2,
+            completed: 3,
         };
 
         rows.sort((a, b) => {

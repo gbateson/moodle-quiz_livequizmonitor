@@ -54,6 +54,9 @@ class monitor_manager {
     /** @var string Monitor status: completed. */
     public const STATUS_COMPLETED = 'completed';
 
+    /** @var string[] Convenient array of in-progress and idle statuses. */
+    public const INPROGRESS_OR_IDLE = [self::STATUS_INPROGRESS, self::STATUS_IDLE];
+
     /**
      * Quiz attempt state used on modified Moodle 4.5 and Moodle 5+.
      *
@@ -181,7 +184,7 @@ class monitor_manager {
 
         $attemptids = [];
         foreach ($rows as $row) {
-            if ($row->status === self::STATUS_INPROGRESS && $row->attemptid !== null) {
+            if (in_array($row->status, self::INPROGRESS_OR_IDLE) && $row->attemptid !== null) {
                 $attemptids[] = (int) $row->attemptid;
             }
         }
@@ -197,9 +200,6 @@ class monitor_manager {
 
         $summary = self::build_summary($rows, count($students));
 
-        $canextend = extend_time_manager::user_can_extend($context);
-        $inprogresscount = $summary->inprogress->count;
-
         $state = (object) [
             'courseid' => (int) $course->id,
             'cmid' => (int) $cm->id,
@@ -211,8 +211,9 @@ class monitor_manager {
             'summary' => $summary,
             'students' => $rows,
             'hasstudents' => count($students) > 0,
-            'canextend' => $canextend,
-            'inprogresscount' => $inprogresscount,
+            'canextend' => extend_time_manager::user_can_extend($context),
+            'inprogresscount' => $summary->inprogress->count,
+            'idlecount' => $summary->idle->count,
             'onesessionactive' => $onesessionactive,
             'canunblock' => $canunblock,
             'canviewlogs' => $canviewlogs,
@@ -447,7 +448,7 @@ class monitor_manager {
                     if ($timeremaining === false) {
                         // No timelimit or close time.
                         $timeremaining = 0;
-                        $timeremainingdisplay = self::format_duration(0);
+                        $timeremainingdisplay = '—';
                     } else if ($timeremaining < 0) {
                         // Time has expired.
                         $timeremaining = 0;
@@ -456,7 +457,7 @@ class monitor_manager {
                         // Time still remains.
                         $timeremainingdisplay = self::format_duration((int) $timeremaining);
                     }
-
+                    // Detect "idle" attempt.
                     if (self::is_attempt_idle($attemptobj, $now)) {
                         $status = self::STATUS_IDLE;
                         $statuslabel = self::status_label($status);
@@ -480,12 +481,7 @@ class monitor_manager {
 
         $canextend = extend_time_manager::user_can_extend($context);
 
-        $hastimer = false;
-        if (in_array($status, [self::STATUS_INPROGRESS, self::STATUS_IDLE], true)) {
-            if ($timeremaining !== null && (int) $timeremaining > 0) {
-                $hastimer = true;
-            }
-        }
+        $hastimer = in_array($status, self::INPROGRESS_OR_IDLE) && $timeremaining !== null;
 
         return (object) [
             'courseid' => (int) $quiz->course,

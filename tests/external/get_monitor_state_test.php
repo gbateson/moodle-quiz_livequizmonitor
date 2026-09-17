@@ -52,10 +52,8 @@ final class get_monitor_state_test extends advanced_testcase {
 
         $generator = $this->getDataGenerator();
         $course = $generator->create_course();
-        $teacher = $generator->create_user();
-        $student = $generator->create_user();
-        $generator->enrol_user($teacher->id, $course->id, 'editingteacher');
-        $generator->enrol_user($student->id, $course->id, 'student');
+        $student = $generator->create_and_enrol($course, 'student');
+        $teacher = $generator->create_and_enrol($course, 'editingteacher');
 
         $quizgenerator = $generator->get_plugin_generator('mod_quiz');
         $questiongenerator = $generator->get_plugin_generator('core_question');
@@ -100,10 +98,8 @@ final class get_monitor_state_test extends advanced_testcase {
 
         $generator = $this->getDataGenerator();
         $course = $generator->create_course();
-        $teacher = $generator->create_user();
-        $student = $generator->create_user();
-        $generator->enrol_user($teacher->id, $course->id, 'editingteacher');
-        $generator->enrol_user($student->id, $course->id, 'student');
+        $student = $generator->create_and_enrol($course, 'student');
+        $teacher = $generator->create_and_enrol($course, 'editingteacher');
 
         $quizgenerator = $generator->get_plugin_generator('mod_quiz');
         $quiz = $quizgenerator->create_instance(['course' => $course->id]);
@@ -131,8 +127,7 @@ final class get_monitor_state_test extends advanced_testcase {
 
         $generator = $this->getDataGenerator();
         $course = $generator->create_course();
-        $student = $generator->create_user();
-        $generator->enrol_user($student->id, $course->id, 'student');
+        $student = $generator->create_and_enrol($course, 'student');
 
         $quizgenerator = $generator->get_plugin_generator('mod_quiz');
         $quiz = $quizgenerator->create_instance(['course' => $course->id, 'grade' => 100]);
@@ -170,8 +165,7 @@ final class get_monitor_state_test extends advanced_testcase {
 
         $generator = $this->getDataGenerator();
         $course = $generator->create_course();
-        $teacher = $generator->create_user();
-        $generator->enrol_user($teacher->id, $course->id, 'editingteacher');
+        $teacher = $generator->create_and_enrol($course, 'editingteacher');
 
         $quizgenerator = $generator->get_plugin_generator('mod_quiz');
         $cm = get_coursemodule_from_instance(

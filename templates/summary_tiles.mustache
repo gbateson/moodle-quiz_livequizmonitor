@@ -24,7 +24,7 @@
             <div class="card-body">
                 <div class="livequizmonitor-tile-label">{{summary.notstarted.label}}</div>
                 <div class="livequizmonitor-tile-count" data-summary="notstarted">{{summary.notstarted.count}}</div>
-                <div class="livequizmonitor-tile-percent" data-summary-pct="notstarted">{{summary.notstarted.percent}}%</div>
+                <div class="livequizmonitor-tile-percent" data-summary-pct="notstarted">{{#str}} percents, moodle, {{summary.notstarted.percent}} {{/str}}</div>
             </div>
         </div>
     </div>
@@ -52,7 +52,7 @@
             <div class="card-body">
                 <div class="livequizmonitor-tile-label">{{summary.inprogress.label}}</div>
                 <div class="livequizmonitor-tile-count" data-summary="inprogress">{{summary.inprogress.count}}</div>
-                <div class="livequizmonitor-tile-percent" data-summary-pct="inprogress">{{summary.inprogress.percent}}%</div>
+                <div class="livequizmonitor-tile-percent" data-summary-pct="inprogress">{{#str}} percents, moodle, {{summary.inprogress.percent}} {{/str}}</div>
             </div>
         </div>
     </div>
@@ -66,7 +66,7 @@
             <div class="card-body">
                 <div class="livequizmonitor-tile-label">{{summary.completed.label}}</div>
                 <div class="livequizmonitor-tile-count" data-summary="completed">{{summary.completed.count}}</div>
-                <div class="livequizmonitor-tile-percent" data-summary-pct="completed">{{summary.completed.percent}}%</div>
+                <div class="livequizmonitor-tile-percent" data-summary-pct="completed">{{#str}} percents, moodle, {{summary.completed.percent}} {{/str}}</div>
             </div>
         </div>
     </div>

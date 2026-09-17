@@ -43,6 +43,7 @@ class monitor_renderer extends plugin_renderer_base {
         $updated = userdate($state->updatedat, get_string('strftimetime', 'langconfig'));
         $canextend = !empty($state->canextend);
         $inprogresscount = (int) ($state->inprogresscount ?? $state->summary->inprogress->count);
+        $idlecount = (int) ($state->idlecount ?? $state->summary->idle->count);
         $onesessionactive = !empty($state->onesessionactive);
         $canunblock = !empty($state->canunblock);
         $canviewlogs = !empty($state->canviewlogs);
@@ -101,9 +102,7 @@ class monitor_renderer extends plugin_renderer_base {
         $students = [];
         foreach ($state->students as $row) {
             $student = (array) $row;
-            $student['cmid'] = $state->cmid;
-            $student['courseid'] = $state->courseid;
-            $student['extendactionenabled'] = $canextend && $row->status === monitor_manager::STATUS_INPROGRESS;
+            $student['extendactionenabled'] = $canextend && in_array($row->status, monitor_manager::INPROGRESS_OR_IDLE, true);
             $student['canextend'] = $canextend;
             $student['onesessionactive'] = $onesessionactive;
             $student['canunblock'] = $canunblock;
@@ -142,8 +141,9 @@ class monitor_renderer extends plugin_renderer_base {
             'canviewlogs' => $canviewlogs,
             'canviewattempts' => $canviewattempts,
             'inprogresscount' => $inprogresscount,
+            'idlecount' => $idlecount,
             'showpasswordlabel' => get_string('showpassword:label', 'quiz_livequizmonitor'),
-            'bulkextenddisabled' => $inprogresscount === 0,
+            'bulkextenddisabled' => ($inprogresscount + $idlecount) === 0,
             'bulkextendlabel' => get_string('extend:bulklabel', 'quiz_livequizmonitor'),
             'extendrowlabel' => get_string('extend:rowaction', 'quiz_livequizmonitor'),
             'notesaddlabel' => get_string('notes:addlabel', 'quiz_livequizmonitor'),

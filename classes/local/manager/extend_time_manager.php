@@ -103,7 +103,7 @@ class extend_time_manager {
             }
             $userids = [$userid];
         } else if ($scope === self::SCOPE_BULK) {
-            $userids = self::get_active_userids($course, $cm, $quiz, $groupid);
+            $userids = self::get_extendable_userids($course, $cm, $quiz, $groupid);
         } else {
             throw new moodle_exception('invalidscope', 'quiz_livequizmonitor');
         }
@@ -134,7 +134,7 @@ class extend_time_manager {
     }
 
     /**
-     * Resolve user ids with in-progress monitor status from the obliged cohort.
+     * Resolve user ids eligible for a bulk time extension (in-progress or idle).
      *
      * @param stdClass $course Course record.
      * @param cm_info|stdClass $cm Course module.
@@ -142,24 +142,22 @@ class extend_time_manager {
      * @param int $groupid Group filter.
      * @return int[]
      */
-    public static function get_active_userids(
+    public static function get_extendable_userids(
         stdClass $course,
         cm_info|stdClass $cm,
         stdClass $quiz,
         int $groupid
     ): array {
         $state = monitor_manager::get_state($course, $cm, $quiz, $groupid);
-        $activestatus = [
+        $extendablestatus = [
             monitor_manager::STATUS_INPROGRESS,
             monitor_manager::STATUS_IDLE,
         ];
-        $userids = [];
-        foreach ($state->students as $row) {
-            if (in_array($row->status, $activestatus, true)) {
-                $userids[] = (int) $row->userid;
-            }
-        }
-        return $userids;
+        $extendableusers = array_filter(
+            $state->students,
+            fn($student) => in_array($student->status, $extendablestatus)
+        );
+        return array_column($extendableusers, 'userid');
     }
 
     /**

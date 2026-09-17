@@ -23,7 +23,7 @@ Feature: Display accurate time remaining in Live Quiz Monitor
       | questioncategory | qtype       | name | questiontext |
       | Test questions   | shortanswer | SA1  | What is 2+2? |
 
-  Scenario: No time limit, no close time outputs "00:00"
+  Scenario: No time limit, no close time outputs "—"
     Given the following "activities" exist:
       | activity | name          | course |
       | quiz     | Quiz No Limit | C1     |

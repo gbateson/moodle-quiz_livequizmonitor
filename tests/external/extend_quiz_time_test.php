@@ -27,12 +27,14 @@ namespace quiz_livequizmonitor\external;
 defined('MOODLE_INTERNAL') || die();
 
 require_once(__DIR__ . '/../traits/group_scope_test_trait.php');
+require_once(__DIR__ . '/../traits/quiz_attempt_activity_trait.php');
 
 use advanced_testcase;
 use invalid_parameter_exception;
 use moodle_exception;
 use quiz_livequizmonitor\local\manager\extend_time_manager;
 use quiz_livequizmonitor\tests\traits\group_scope_test_trait;
+use quiz_livequizmonitor\tests\traits\quiz_attempt_activity_trait;
 use required_capability_exception;
 
 /**
@@ -43,6 +45,7 @@ use required_capability_exception;
  */
 final class extend_quiz_time_test extends advanced_testcase {
     use group_scope_test_trait;
+    use quiz_attempt_activity_trait;
 
     /**
      * Create a timed quiz with one question.
@@ -78,10 +81,8 @@ final class extend_quiz_time_test extends advanced_testcase {
 
         $generator = $this->getDataGenerator();
         $course = $generator->create_course();
-        $teacher = $generator->create_user();
-        $student = $generator->create_user();
-        $generator->enrol_user($teacher->id, $course->id, 'editingteacher');
-        $generator->enrol_user($student->id, $course->id, 'student');
+        $teacher = $generator->create_and_enrol($course, 'editingteacher');
+        $student = $generator->create_and_enrol($course, 'student');
 
         [$quiz, $cm, $quizgenerator] = $this->create_timed_quiz($course);
 
@@ -104,10 +105,8 @@ final class extend_quiz_time_test extends advanced_testcase {
 
         $generator = $this->getDataGenerator();
         $course = $generator->create_course();
-        $teacher = $generator->create_user();
-        $student = $generator->create_user();
-        $generator->enrol_user($teacher->id, $course->id, 'editingteacher');
-        $generator->enrol_user($student->id, $course->id, 'student');
+        $teacher = $generator->create_and_enrol($course, 'editingteacher');
+        $student = $generator->create_and_enrol($course, 'student');
 
         [$quiz, $cm, $quizgenerator] = $this->create_timed_quiz($course);
 
@@ -129,8 +128,7 @@ final class extend_quiz_time_test extends advanced_testcase {
 
         $generator = $this->getDataGenerator();
         $course = $generator->create_course();
-        $teacher = $generator->create_user();
-        $generator->enrol_user($teacher->id, $course->id, 'editingteacher');
+        $teacher = $generator->create_and_enrol($course, 'editingteacher');
 
         [$quiz, $cm] = $this->create_timed_quiz($course);
 
@@ -148,8 +146,7 @@ final class extend_quiz_time_test extends advanced_testcase {
 
         $generator = $this->getDataGenerator();
         $course = $generator->create_course();
-        $student = $generator->create_user();
-        $generator->enrol_user($student->id, $course->id, 'student');
+        $student = $generator->create_and_enrol($course, 'student');
 
         [$quiz, $cm] = $this->create_timed_quiz($course);
 
@@ -200,42 +197,16 @@ final class extend_quiz_time_test extends advanced_testcase {
     }
 
     /**
-     * Backdate the most recent question-attempt step so the attempt reads as idle.
-     *
-     * @param int $attemptid Attempt id.
-     * @param int $minutesago Minutes to backdate the last activity.
-     */
-    private function backdate_last_activity(int $attemptid, int $minutesago): void {
-        global $DB;
-
-        $attempt = $DB->get_record('quiz_attempts', ['id' => $attemptid], '*', MUST_EXIST);
-        $step = $DB->get_record_sql(
-            "SELECT qas.*
-            FROM {question_attempt_steps} qas
-            JOIN {question_attempts} qa ON qa.id = qas.questionattemptid
-            WHERE qa.questionusageid = :uniqueid
-        ORDER BY qas.timecreated DESC",
-            ['uniqueid' => $attempt->uniqueid],
-            MUST_EXIST
-        );
-        $step->timecreated = time() - ($minutesago * 60);
-        $DB->update_record('question_attempt_steps', $step);
-    }
-
-    /**
      * Bulk-eligible user ids include idle students, not just in-progress ones.
      */
-    public function test_get_active_userids_includes_idle_students(): void {
+    public function test_get_extendable_userids_includes_idle_students(): void {
         $this->resetAfterTest();
 
         $generator = $this->getDataGenerator();
         $course = $generator->create_course();
-        $teacher = $generator->create_user();
-        $activeuser = $generator->create_user();
-        $idleuser = $generator->create_user();
-        $generator->enrol_user($teacher->id, $course->id, 'editingteacher');
-        $generator->enrol_user($activeuser->id, $course->id, 'student');
-        $generator->enrol_user($idleuser->id, $course->id, 'student');
+        $teacher = $generator->create_and_enrol($course, 'editingteacher');
+        $activeuser = $generator->create_and_enrol($course, 'student');
+        $idleuser = $generator->create_and_enrol($course, 'student');
 
         [$quiz, $cm, $quizgenerator] = $this->create_timed_quiz($course);
 
@@ -247,7 +218,7 @@ final class extend_quiz_time_test extends advanced_testcase {
         $this->backdate_last_activity($idleattempt->id, 6);
 
         $this->setUser($teacher);
-        $userids = extend_time_manager::get_active_userids($course, $cm, $quiz, 0);
+        $userids = extend_time_manager::get_extendable_userids($course, $cm, $quiz, 0);
 
         $this->assertContains((int) $activeuser->id, $userids);
         $this->assertContains((int) $idleuser->id, $userids);
@@ -261,10 +232,8 @@ final class extend_quiz_time_test extends advanced_testcase {
 
         $generator = $this->getDataGenerator();
         $course = $generator->create_course();
-        $teacher = $generator->create_user();
-        $idleuser = $generator->create_user();
-        $generator->enrol_user($teacher->id, $course->id, 'editingteacher');
-        $generator->enrol_user($idleuser->id, $course->id, 'student');
+        $teacher = $generator->create_and_enrol($course, 'editingteacher');
+        $idleuser = $generator->create_and_enrol($course, 'student');
 
         [$quiz, $cm, $quizgenerator] = $this->create_timed_quiz($course);
 
