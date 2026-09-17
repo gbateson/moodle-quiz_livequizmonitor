@@ -41,25 +41,29 @@ Feature: Sort students in Live Quiz Monitor
     Given student "student-a" has completed quiz "Quiz 1"
     And student "student-b" has answered question 1 in quiz "Quiz 1"
 
+    # Show initial sort order.
     When I am on the live monitor report for "Quiz 1"
     Then the following students should appear in order:
       | Name B |
       | Name C |
       | Name A |
 
-    When I click on the "email" column header
+    # Click on the "email" column header.
+    When I click on "th[data-sort-column='email']" "css_element"
     Then the following students should appear in order:
       | Name C |
       | Name A |
       | Name B |
 
-    When I click on the "progress" column header
+    # Click on the "progress" column header.
+    When I click on "th[data-sort-column='progress']" "css_element"
     Then the following students should appear in order:
       | Name C |
       | Name B |
       | Name A |
 
-    When I click on the "progress" column header
+    # Click on the "progress" column header again to reverse the order.
+    When I click on "th[data-sort-column='progress']" "css_element"
     Then the following students should appear in order:
       | Name A |
       | Name B |
