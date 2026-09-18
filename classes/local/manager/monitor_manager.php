@@ -133,6 +133,11 @@ class monitor_manager {
     ): stdClass {
         global $DB;
 
+        // Convert stdClass to cm_info early.
+        if ($cm instanceof stdClass) {
+            $cm = cm_info::create($cm);
+        }
+
         $context = context_module::instance($cm->id);
         $now = time();
 
@@ -237,20 +242,33 @@ class monitor_manager {
      * @param cm_info|stdClass $cm Course module record.
      * @param context_module $context Module context.
      * @param int $groupid Active group id (0 = all groups).
+     * @param int $userid Optional single user to test, 0 for the whole roster.
      * @return array User records keyed by user id.
      */
-    public static function get_allowed_students(cm_info|stdClass $cm, context_module $context, int $groupid): array {
+    public static function get_allowed_students(
+        cm_info|stdClass $cm,
+        context_module $context,
+        int $groupid,
+        int $userid = 0
+    ): array {
         global $DB;
 
         $onlyactive = false;
 
         [$enrolledsql, $params] = get_enrolled_sql($context, 'mod/quiz:attempt', $groupid, $onlyactive);
 
-        $namefields = fields::for_name()->get_sql('u', false, '', '', false)->selects;
-        $sql = "SELECT u.id, u.email, $namefields
-                  FROM {user} u
-                  JOIN ($enrolledsql) e ON e.id = u.id
-                 WHERE u.deleted = 0";
+        $userfields = fields::for_name()->including('id', 'email', 'username', 'idnumber');
+        $fieldsql = $userfields->get_sql('u', false, '', '', false);
+        $sql = "SELECT {$fieldsql->selects}
+                FROM {user} u
+                JOIN ($enrolledsql) e ON e.id = u.id
+                WHERE u.deleted = 0";
+
+        // Narrow to a single user when the caller only needs a membership test.
+        if ($userid > 0) {
+            $sql .= ' AND u.id = :targetuserid';
+            $params['targetuserid'] = $userid;
+        }
 
         // Fold the activity's access restrictions into the same query.
         if ($cm instanceof stdClass) {
@@ -262,8 +280,6 @@ class monitor_manager {
             $sql .= " AND u.id IN ($usersql)";
             $params = array_merge($params, $userparams);
         }
-
-        $sql .= ' ORDER BY u.lastname ASC, u.firstname ASC';
 
         return $DB->get_records_sql($sql, $params);
     }
