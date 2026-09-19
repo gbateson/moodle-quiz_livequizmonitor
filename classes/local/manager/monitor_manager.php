@@ -653,8 +653,6 @@ class monitor_manager {
      * @param array $rows Student rows (by reference).
      * @param string $sortcolumn Column to sort by.
      * @param string $sortdirection Sort direction: asc or desc.
-     * @param string $sortcolumn Column to sort by.
-     * @param string $sortdirection Sort direction: asc or desc.
      */
     protected static function sort_student_rows(
         array &$rows,

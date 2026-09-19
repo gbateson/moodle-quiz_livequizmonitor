@@ -45,9 +45,13 @@
             "chips": []
         },
         "filterempty": "No students match the current filters.",
-        "tableheaders": [
+        "columns": [
             {
+                "id": "status",
                 "label": "Status",
+                "locked": true,
+                "showcolumn": true,
+                "sortable": true,
                 "sortcolumn": "status",
                 "active": true,
                 "sorticon": "fa-arrow-up-short-wide",
@@ -56,7 +60,13 @@
                 "sortbylabel": "Sort by Status"
             },
             {
+                "id": "student",
                 "label": "Student",
+                "locked": false,
+                "showcolumn": true,
+                "hidelabel": "Hide Student column",
+                "showlabel": "Show Student column",
+                "sortable": true,
                 "sortcolumn": "fullname",
                 "active": false,
                 "sorticon": "fa-arrow-up-short-wide",
@@ -65,7 +75,13 @@
                 "sortbylabel": "Sort by Student"
             },
             {
+                "id": "email",
                 "label": "Email",
+                "locked": false,
+                "showcolumn": true,
+                "hidelabel": "Hide Email column",
+                "showlabel": "Show Email column",
+                "sortable": true,
                 "sortcolumn": "email",
                 "active": false,
                 "sorticon": "fa-arrow-up-short-wide",
@@ -74,7 +90,13 @@
                 "sortbylabel": "Sort by Email"
             },
             {
+                "id": "progress",
                 "label": "Progress",
+                "locked": false,
+                "showcolumn": true,
+                "hidelabel": "Hide Progress column",
+                "showlabel": "Show Progress column",
+                "sortable": true,
                 "sortcolumn": "progress",
                 "active": false,
                 "sorticon": "fa-arrow-up-short-wide",
@@ -83,16 +105,29 @@
                 "sortbylabel": "Sort by Progress"
             },
             {
+                "id": "timeremaining",
                 "label": "Time remaining",
+                "locked": false,
+                "showcolumn": true,
+                "hidelabel": "Hide Time remaining column",
+                "showlabel": "Show Time remaining column",
+                "sortable": true,
                 "sortcolumn": "timeremaining",
                 "active": false,
                 "sorticon": "fa-arrow-up-short-wide",
                 "sortlabel": "Sort by Time remaining",
                 "sortclass": "text-secondary",
                 "sortbylabel": "Sort by Time remaining"
+            },
+            {
+                "id": "actions",
+                "label": "Actions",
+                "locked": true,
+                "showcolumn": true,
+                "sortable": false
             }
         ],
-        "actionscolumnlabel": "Actions",
+        "hiddencolumnsjson": "[]",
         "sortascending": "Ascending",
         "sortdescending": "Descending",
         "students": []
@@ -122,7 +157,8 @@
      data-onesession-active="{{#onesessionactive}}1{{/onesessionactive}}{{^onesessionactive}}0{{/onesessionactive}}"
      data-canunblock="{{#canunblock}}1{{/canunblock}}{{^canunblock}}0{{/canunblock}}"
      data-canviewlogs="{{#canviewlogs}}1{{/canviewlogs}}{{^canviewlogs}}0{{/canviewlogs}}"
-     data-canviewattempts="{{#canviewattempts}}1{{/canviewattempts}}{{^canviewattempts}}0{{/canviewattempts}}">
+     data-canviewattempts="{{#canviewattempts}}1{{/canviewattempts}}{{^canviewattempts}}0{{/canviewattempts}}"
+     data-hidden-columns="{{hiddencolumnsjson}}">
 
     <div class="livequizmonitor-header d-flex flex-wrap align-items-center justify-content-between mb-3">
         <div>

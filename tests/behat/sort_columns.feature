@@ -49,21 +49,21 @@ Feature: Sort students in Live Quiz Monitor
       | Name A |
 
     # Click on the "email" column header.
-    When I click on "th[data-sort-column='email']" "css_element"
+    When I click on "th[data-sort-column='email'] .livequizmonitor-th-label" "css_element"
     Then the following students should appear in order:
       | Name C |
       | Name A |
       | Name B |
 
     # Click on the "progress" column header.
-    When I click on "th[data-sort-column='progress']" "css_element"
+    When I click on "th[data-sort-column='progress'] .livequizmonitor-th-label" "css_element"
     Then the following students should appear in order:
       | Name C |
       | Name B |
       | Name A |
 
     # Click on the "progress" column header again to reverse the order.
-    When I click on "th[data-sort-column='progress']" "css_element"
+    When I click on "th[data-sort-column='progress'] .livequizmonitor-th-label" "css_element"
     Then the following students should appear in order:
       | Name A |
       | Name B |

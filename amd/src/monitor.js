@@ -26,6 +26,11 @@ import Notification from 'core/notification';
 import Templates from 'core/templates';
 import {BaseComponent} from 'core/reactive';
 import {matchesFilters, countVisible} from 'quiz_livequizmonitor/filter_utils';
+import {
+    parseHiddenColumns,
+    applyColumnVisibility,
+    saveHiddenColumns,
+} from 'quiz_livequizmonitor/column_visibility';
 import {createMonitorReactive, formatDuration} from 'quiz_livequizmonitor/reactive/monitor_state';
 import {showPasswordModal} from 'quiz_livequizmonitor/show_password_modal';
 import {showExtendModal} from 'quiz_livequizmonitor/extend_time_modal';
@@ -41,8 +46,24 @@ const POLL_INTERVAL_MS = 5000;
 class MonitorComponent extends BaseComponent {
     /**
      * @param {object} descriptor Component descriptor
+     *
+     * This function has been split into 4 "init" functions to avoid
+     * CI errors complaining that the code "complexity" is too high.
      */
     create(descriptor) {
+        this.initSelectors();
+        this.initPollState();
+
+        const root = descriptor.element ?? this.element;
+        this.initIdsAndFlags(descriptor, root);
+        this.initLabels(root);
+        this.hiddenColumns = parseHiddenColumns(root);
+    }
+
+    /**
+     * Cache CSS selectors used throughout the component.
+     */
+    initSelectors() {
         this.selectors = {
             LASTUPDATED: '[data-region="last-updated"]',
             STALE: '[data-region="stale-indicator"]',
@@ -66,33 +87,56 @@ class MonitorComponent extends BaseComponent {
             SUMMARYTILE: '.livequizmonitor-summary-tile',
             EXTENDBULK: '[data-action="extend-bulk"]',
             SHOWPASSWORD: '[data-action="show-password"]',
+            COLUMNTOGGLE: '[data-action="toggle-column"]',
         };
+    }
+
+    /**
+     * Initialise polling/sync state flags.
+     */
+    initPollState() {
         this.pollTimer = null;
         this.tickTimer = null;
         this.pollInFlight = false;
         this.syncInFlight = false;
         this.syncQueued = false;
         this.hasReceivedPoll = false;
-        const root = descriptor.element ?? this.element;
+    }
+
+    /**
+     * Read ids and boolean capability/visibility flags from the descriptor and dataset.
+     *
+     * @param {object} descriptor Component descriptor
+     * @param {HTMLElement} root Root element
+     */
+    initIdsAndFlags(descriptor, root) {
         this.cmid = parseInt(descriptor.cmid ?? root.dataset.cmid ?? 0, 10);
         this.groupid = parseInt(descriptor.groupid ?? root.dataset.groupid ?? 0, 10);
         this.courseId = parseInt(descriptor.courseid ?? root.dataset.courseid ?? 1, 10);
         this.showEmailColumn = root.dataset.showEmail === '1';
         this.showActionsColumn = root.dataset.showActions === '1';
+        this.canextend = root.dataset.canextend === '1';
+        this.onesessionactive = root.dataset.onesessionActive === '1';
+        this.canunblock = root.dataset.canunblock === '1';
+        this.canviewlogs = root.dataset.canviewlogs === '1';
+        this.canviewattempts = root.dataset.canviewattempts === '1';
+    }
+
+    /**
+     * Read display label strings from the dataset.
+     *
+     * @param {HTMLElement} root Root element
+     */
+    initLabels(root) {
         this.lastUpdatedPrefix = root.dataset.lastupdatedPrefix ?? '';
         this.extendRowLabel = root.dataset.extendRowLabel ?? 'Extend time';
         this.noteAddLabel = root.dataset.notesAddLabel ?? 'Add note';
         this.noteEditLabel = root.dataset.notesEditLabel ?? 'Edit note';
         this.actionsMenuLabel = root.dataset.actionsMenuLabel ?? 'Actions';
-        this.canextend = root.dataset.canextend === '1';
-        this.onesessionactive = root.dataset.onesessionActive === '1';
-        this.canunblock = root.dataset.canunblock === '1';
         this.unblockRowLabel = root.dataset.unblockLabel ?? 'Unblock user';
         this.blockedFlagLabel = root.dataset.blockedFlagLabel ?? 'Blocked';
         this.showLogsLabel = root.dataset.showLogsLabel ?? 'Show logs';
-        this.canviewlogs = root.dataset.canviewlogs === '1';
         this.showAttemptsLabel = root.dataset.showAttemptsLabel ?? 'Show_attempts';
-        this.canviewattempts = root.dataset.canviewattempts === '1';
         this.sortAscendingLabel = root.dataset.sortAscending ?? 'Ascending';
         this.sortDescendingLabel = root.dataset.sortDescending ?? 'Descending';
         this.userOverrideFlagLabel = root.dataset.useroverrideFlagLabel ?? 'Has extension';
@@ -167,11 +211,61 @@ class MonitorComponent extends BaseComponent {
         this.bindSortEvents();
         this.bindExtendEvents();
         this.bindNoteEvents();
+        this.bindColumnToggleEvents();
         this.startPolling();
         this.startTimerTick();
         this.renderCohortLayout();
         this.renderFilterToolbar();
         this.renderBulkExtendButton();
+        this.renderColumnVisibility();
+    }
+
+    /**
+     * Bind clicks on the per-column +/- hide/show toggle buttons.
+     */
+    bindColumnToggleEvents() {
+        this.addEventListener(this.element, 'click', this.handleColumnToggleClick);
+    }
+
+    /**
+     * Toggle a column's hidden state, reflect it immediately, and persist it.
+     *
+     * @param {Event} event
+     */
+    handleColumnToggleClick(event) {
+        const button = event.target.closest(this.selectors.COLUMNTOGGLE);
+        if (!button || !this.element.contains(button)) {
+            return;
+        }
+        event.preventDefault();
+
+        const column = button.dataset.column;
+        if (!column) {
+            return;
+        }
+
+        if (this.hiddenColumns.has(column)) {
+            this.hiddenColumns.delete(column);
+        } else {
+            this.hiddenColumns.add(column);
+        }
+
+        this.renderColumnVisibility();
+
+        saveHiddenColumns(this.cmid, this.hiddenColumns).catch((e) => {
+            Notification.exception(e);
+        });
+    }
+
+    /**
+     * Re-apply hidden-column state to every column-aware element in the table.
+     *
+     * Called on init, after a toggle click, and after every reactive row
+     * sync so newly inserted rows immediately respect the current
+     * preference too.
+     */
+    renderColumnVisibility() {
+        applyColumnVisibility(this.element, this.hiddenColumns);
     }
 
     /**
@@ -525,6 +619,15 @@ class MonitorComponent extends BaseComponent {
      * @param {Event} event
      */
     handleSortClick(event) {
+        // The per-column hide/show toggle button now lives inside the same
+        // <th data-action="sort-column"> as the sort-click target, since
+        // both features share one header cell. Without this guard, closest()
+        // would walk up from the button to the th and fire a sort action on
+        // every visibility toggle too.
+        if (event.target.closest(this.selectors.COLUMNTOGGLE)) {
+            return;
+        }
+
         const trigger = event.target.closest('[data-action="sort-column"]');
 
         if (!trigger || !this.element.contains(trigger)) {
@@ -942,6 +1045,7 @@ class MonitorComponent extends BaseComponent {
 
             this.applyRowVisibility();
             this.renderFilterEmpty();
+            this.renderColumnVisibility();
         } finally {
             this.syncInFlight = false;
             if (this.syncQueued) {
