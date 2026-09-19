@@ -328,20 +328,6 @@ class behat_quiz_livequizmonitor extends behat_base {
     }
 
     /**
-     * Click a live monitor column header.
-     *
-     * @When /^I click on the "(?P<column>[^"]*)" column header$/
-     * @param string $column Column heading text.
-     */
-    public function i_click_on_the_column_header(string $column): void {
-        $header = $this->find(
-            'css',
-            '.livequizmonitor-table thead th[data-sort-column="' . $column . '"]'
-        );
-        $header->click();
-    }
-
-    /**
      * Add a user to a group, triggering the group_member_added event.
      *
      * @Given /^user "([^"]*)" is added to group "([^"]*)"$/
@@ -369,5 +355,65 @@ class behat_quiz_livequizmonitor extends behat_base {
         $userid = $DB->get_field('user', 'id', ['username' => $username], MUST_EXIST);
         $groupid = $DB->get_field('groups', 'id', ['name' => $groupname], MUST_EXIST);
         groups_remove_member($groupid, $userid);
+    }
+
+    /**
+     * Create a user override with an extended time limit for a student.
+     *
+     * @Given /^user "(?P<username>[^"]*)" has a time limit override on quiz "(?P<quizname>[^"]*)"$/
+     * @param string $username Student username.
+     * @param string $quizname Quiz activity name.
+     */
+    public function user_has_a_time_limit_override_on_quiz(string $username, string $quizname): void {
+        global $DB;
+
+        $user = $DB->get_record('user', ['username' => $username], 'id', MUST_EXIST);
+        $quiz = $DB->get_record('quiz', ['name' => $quizname], 'id', MUST_EXIST);
+
+        $DB->insert_record('quiz_overrides', (object) [
+            'quiz' => $quiz->id,
+            'userid' => $user->id,
+            'timelimit' => 3600,
+        ]);
+    }
+
+    /**
+     * Create a user override that only changes the allowed attempts (not time-related).
+     *
+     * @Given /^user "(?P<username>[^"]*)" has an attempts override on quiz "(?P<quizname>[^"]*)"$/
+     * @param string $username Student username.
+     * @param string $quizname Quiz activity name.
+     */
+    public function user_has_an_attempts_override_on_quiz(string $username, string $quizname): void {
+        global $DB;
+
+        $user = $DB->get_record('user', ['username' => $username], 'id', MUST_EXIST);
+        $quiz = $DB->get_record('quiz', ['name' => $quizname], 'id', MUST_EXIST);
+
+        $DB->insert_record('quiz_overrides', (object) [
+            'quiz' => $quiz->id,
+            'userid' => $user->id,
+            'attempts' => 5,
+        ]);
+    }
+
+    /**
+     * Create a group override with an extended time limit.
+     *
+     * @Given /^group "(?P<groupname>[^"]*)" has a time limit override on quiz "(?P<quizname>[^"]*)"$/
+     * @param string $groupname Group name (idnumber).
+     * @param string $quizname Quiz activity name.
+     */
+    public function group_has_a_time_limit_override_on_quiz(string $groupname, string $quizname): void {
+        global $DB;
+
+        $group = $DB->get_record('groups', ['name' => $groupname], 'id', MUST_EXIST);
+        $quiz = $DB->get_record('quiz', ['name' => $quizname], 'id', MUST_EXIST);
+
+        $DB->insert_record('quiz_overrides', (object) [
+            'quiz' => $quiz->id,
+            'groupid' => $group->id,
+            'timelimit' => 3600,
+        ]);
     }
 }
