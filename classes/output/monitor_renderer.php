@@ -110,6 +110,7 @@ class monitor_renderer extends plugin_renderer_base {
             $student['extendrowlabel'] = get_string('extend:rowaction', 'quiz_livequizmonitor');
             $student['unblocklabel'] = get_string('onesession:unblocklabel', 'quiz_livequizmonitor');
             $student['blockedflaglabel'] = get_string('onesession:blockedflag', 'quiz_livequizmonitor');
+            $student['noteflaglabel'] = get_string('notes:hasnoteflag', 'quiz_livequizmonitor');
             $students[] = $student;
         }
 
@@ -141,6 +142,7 @@ class monitor_renderer extends plugin_renderer_base {
             'noteseditlabel' => get_string('notes:editlabel', 'quiz_livequizmonitor'),
             'unblocklabel' => get_string('onesession:unblocklabel', 'quiz_livequizmonitor'),
             'blockedflaglabel' => get_string('onesession:blockedflag', 'quiz_livequizmonitor'),
+            'noteflaglabel' => get_string('notes:hasnoteflag', 'quiz_livequizmonitor'),
             'actionsmenulabel' => get_string('actions'),
             'tableheaders' => $tableheaders,
             'showemailcolumn' => $showemailcolumn,

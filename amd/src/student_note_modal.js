@@ -126,6 +126,9 @@ export const showStudentNoteModal = async(config) => {
 
     return new Promise((resolve) => {
         modal.getRoot().on(ModalEvents.save, async() => {
+            // Keep the modal open until the save request has returned.
+            event.preventDefault();
+
             modal.getRoot().find('[data-action="save"]').prop('disabled', true);
             const content = textarea ? textarea.value : '';
 

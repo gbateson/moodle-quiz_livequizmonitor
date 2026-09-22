@@ -69,6 +69,7 @@ class MonitorComponent extends BaseComponent {
         this.pollTimer = null;
         this.tickTimer = null;
         this.pollInFlight = false;
+        this.pollQueued = false;
         this.syncInFlight = false;
         this.syncQueued = false;
         this.hasReceivedPoll = false;
@@ -89,6 +90,7 @@ class MonitorComponent extends BaseComponent {
         this.blockedFlagLabel = root.dataset.blockedFlagLabel ?? 'Blocked';
         this.sortAscendingLabel = root.dataset.sortAscending ?? 'Ascending';
         this.sortDescendingLabel = root.dataset.sortDescending ?? 'Descending';
+        this.noteFlagLabel = root.dataset.noteFlagLabel ?? 'This student has a note';
     }
 
     /**
@@ -241,15 +243,14 @@ class MonitorComponent extends BaseComponent {
             return;
         }
 
-        const row = this.element.querySelector(`tr[data-userid="${userid}"]`);
-        if (row) {
-            const link = row.querySelector('[data-action="edit-note"]');
-            if (link) {
-                this.updateNoteActionLink(link, {hasnote: response.hasnote});
-            }
-        }
+        // Invalidate any poll already in flight, so its older data can't undo this change.
+        this.localgeneration = (this.localgeneration ?? 0) + 1;
 
-        this.poll();
+        // Update the reactive state; the students.hasnote:updated watcher re-renders the flag and label.
+        this.reactive.dispatch('setStudentNote', {userid, hasnote: !!response.hasnote});
+
+        // Fetch fresh data once any in-flight poll has finished.
+        this.poll({force: true});
     }
 
     /**
@@ -536,16 +537,24 @@ class MonitorComponent extends BaseComponent {
     }
 
     /**
-     * Poll server for fresh monitor state.
+     * Fetch the latest monitor state from the server and apply it.
      *
-     * @returns {Promise<void>}
+     * @param {object} [options]
+     * @param {boolean} [options.force=false] True for polls triggered by a user action (e.g. a note save).
+     *     If a poll is already in flight, a forced poll is queued to run afterwards; a timer tick is dropped.
      */
-    async poll() {
+    async poll({force = false} = {}) {
         if (this.pollInFlight) {
+            // Only user actions need a fetch that starts after their change;
+            // timer ticks are dropped, so a slow server isn't hit with back-to-back polls.
+            if (force) {
+                this.pollQueued = true;
+            }
             return;
         }
 
         this.pollInFlight = true;
+        const generation = this.localgeneration ?? 0;
         try {
             const state = this.getState();
 
@@ -558,6 +567,12 @@ class MonitorComponent extends BaseComponent {
                     sortdirection: state.meta.sortdirection,
                 },
             }])[0];
+
+            // Discard a response requested before a local change, as it would undo that change.
+            // The finally block still runs, so any queued forced poll fetches fresh data straight away.
+            if (generation !== (this.localgeneration ?? 0)) {
+                return;
+            }
 
             if (response.onesessionactive !== undefined) {
                 this.onesessionactive = !!response.onesessionactive;
@@ -576,6 +591,10 @@ class MonitorComponent extends BaseComponent {
             this.reactive.dispatch('setStale', true);
         } finally {
             this.pollInFlight = false;
+            if (this.pollQueued) {
+                this.pollQueued = false;
+                await this.poll();
+            }
         }
     }
 
@@ -760,6 +779,7 @@ class MonitorComponent extends BaseComponent {
             unblockactionenabled: !!student.unblockactionenabled,
             isblocked: !!student.isblocked,
             hasnote: !!student.hasnote,
+            noteflaglabel: this.noteFlagLabel,
             attemptendat: student.attemptendat ?? '',
             attemptid: student.attemptid ?? '',
             notelabel: student.hasnote ? this.noteEditLabel : this.noteAddLabel,
@@ -944,6 +964,7 @@ class MonitorComponent extends BaseComponent {
                 timer.textContent = '—';
             }
         }
+        this.updateNoteFlag(row, student);
         this.renderRowActions(student, row);
     }
 
@@ -1235,6 +1256,37 @@ class MonitorComponent extends BaseComponent {
         } else {
             link.setAttribute('aria-disabled', 'true');
             link.setAttribute('tabindex', '-1');
+        }
+    }
+
+    /**
+     * Show or hide the note flag beside the student's name.
+     *
+     * Mirrors updateBlockedFlag(): the name cell is never rebuilt wholesale on
+     * poll (see updateStudentRow()), so this icon needs its own live patch or
+     * it would go stale for a row that already exists in the DOM when a note
+     * is added or removed mid-session.
+     *
+     * @param {HTMLElement} row Table row element
+     * @param {object} student Student state row
+     */
+    updateNoteFlag(row, student) {
+        const nameEl = row.querySelector('[data-field="fullname"] .livequizmonitor-student-name');
+        if (!nameEl) {
+            return;
+        }
+
+        let flag = nameEl.querySelector('.livequizmonitor-note-flag');
+        if (student.hasnote) {
+            if (!flag) {
+                const flagTitle = this.escapeHtml(this.noteFlagLabel);
+                nameEl.insertAdjacentHTML('beforeend',
+                    '<i class="fa-solid fa-book livequizmonitor-note-flag" ' +
+                    `title="${flagTitle}" aria-label="${flagTitle}"></i>`
+                );
+            }
+        } else if (flag) {
+            flag.remove();
         }
     }
 
