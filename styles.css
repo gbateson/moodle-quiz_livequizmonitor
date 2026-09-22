@@ -118,6 +118,7 @@
     background: var(--bs-tertiary-bg, #f8f9fa);
 }
 
+.livequizmonitor-filter-group #selectgroup label,
 .livequizmonitor-filter-group-label {
     font-size: 0.95em;
     font-weight: 600;
@@ -134,6 +135,15 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 0.5rem;
+}
+
+.livequizmonitor-group-menu .groupselector {
+    margin: 0;
+}
+
+.livequizmonitor-group-menu .groupselector form,
+.livequizmonitor-group-menu .groupselector .singleselect {
+    margin: 0;
 }
 
 .livequizmonitor-search-card {
