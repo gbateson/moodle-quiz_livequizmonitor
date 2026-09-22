@@ -16,6 +16,13 @@
 /**
  * Extend quiz time confirmation modal.
  *
+ * The "+Nm" buttons and the custom-minutes input are not two competing
+ * controls: the input is the single source of truth for the extension
+ * length, and a preset button is just a quick way to write a value into it.
+ * Typing a number by hand and clicking "+15m" therefore leave the modal in
+ * exactly the same state. Keep this in sync with extend_time_manager's
+ * MAX_CUSTOM_MINUTES on the PHP side (classes/local/manager/extend_time_manager.php).
+ *
  * @module     quiz_livequizmonitor/extend_time_modal
  * @copyright  2026 SSYSTEMS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -34,6 +41,9 @@ const PRESETS = [5, 10, 15, 30];
 /** @type {number} */
 const DEFAULT_MINUTES = 15;
 
+/** @type {number} Upper bound for a custom extension. Mirrors extend_time_manager::MAX_CUSTOM_MINUTES. */
+const MAX_CUSTOM_MINUTES = 180;
+
 /**
  * Format a unix timestamp for display.
  *
@@ -48,6 +58,29 @@ const formatDeadline = (timestamp) => {
 };
 
 /**
+ * Parse a candidate minutes value from the custom input.
+ *
+ * Only a plain whole number in [1, MAX_CUSTOM_MINUTES] is valid. Anything
+ * else, including an empty field, decimals, or a value out of range, is
+ * treated as "not currently a usable value" rather than clamped or rounded,
+ * so the person always sees exactly what they typed.
+ *
+ * @param {string} value Raw input value.
+ * @returns {number|null} The parsed minutes, or null when not valid.
+ */
+const parseValidMinutes = (value) => {
+    const trimmed = String(value ?? '').trim();
+    if (!/^\d+$/.test(trimmed)) {
+        return null;
+    }
+    const parsed = parseInt(trimmed, 10);
+    if (parsed < 1 || parsed > MAX_CUSTOM_MINUTES) {
+        return null;
+    }
+    return parsed;
+};
+
+/**
  * Load modal language strings.
  *
  * @returns {Promise<object>}
@@ -56,6 +89,8 @@ const loadStrings = async() => {
     const keys = [
         {key: 'extend:modaltitle', component: 'quiz_livequizmonitor'},
         {key: 'extend:addtime', component: 'quiz_livequizmonitor'},
+        {key: 'extend:customlabel', component: 'quiz_livequizmonitor'},
+        {key: 'extend:custominvalid', component: 'quiz_livequizmonitor'},
         {key: 'extend:modalbodyindividual', component: 'quiz_livequizmonitor'},
         {key: 'extend:modalbodybulk', component: 'quiz_livequizmonitor'},
         {key: 'extend:newdeadlineindividual', component: 'quiz_livequizmonitor'},
@@ -68,6 +103,8 @@ const loadStrings = async() => {
     const [
         modaltitle,
         addtime,
+        customlabel,
+        custominvalid,
         modalbodyindividual,
         modalbodybulk,
         newdeadlineindividual,
@@ -81,6 +118,8 @@ const loadStrings = async() => {
     return {
         modaltitle,
         addtime,
+        customlabel,
+        custominvalid,
         modalbodyindividual,
         modalbodybulk,
         newdeadlineindividual,
@@ -97,7 +136,7 @@ const loadStrings = async() => {
  *
  * @param {object} config Modal configuration
  * @param {object} strings Loaded language strings
- * @param {number} minutes Selected minutes
+ * @param {number} minutes Currently selected minutes
  * @returns {Promise<object>}
  */
 const buildBodyContext = async(config, strings, minutes) => {
@@ -126,19 +165,25 @@ const buildBodyContext = async(config, strings, minutes) => {
             minutes: preset,
             active: preset === minutes,
         })),
+        customlabel: strings.customlabel,
+        custommax: MAX_CUSTOM_MINUTES,
+        customvalue: minutes,
     };
 };
 
 /**
- * Update preview and confirm label after preset change.
+ * Refresh the preview text, confirm button label, and preset highlight for
+ * the currently valid minutes value. Does nothing to the confirm button's
+ * disabled state; that is handled separately since it also needs to react
+ * to an invalid (not just changed) value.
  *
  * @param {HTMLElement} root Modal root element
  * @param {object} config Modal configuration
  * @param {object} strings Loaded language strings
- * @param {number} minutes Selected minutes
+ * @param {number} minutes Currently valid minutes
  * @param {object} modal Modal instance
  */
-const updatePreview = async(root, config, strings, minutes, modal) => {
+const refreshPreview = async(root, config, strings, minutes, modal) => {
     const context = await buildBodyContext(config, strings, minutes);
     const previewLabel = root.querySelector('[data-region="extend-preview-label"]');
     const previewValue = root.querySelector('[data-region="extend-preview"]');
@@ -152,7 +197,6 @@ const updatePreview = async(root, config, strings, minutes, modal) => {
     root.querySelectorAll('.livequizmonitor-extend-preset').forEach((button) => {
         const isActive = parseInt(button.dataset.minutes, 10) === minutes;
         button.classList.toggle('active', isActive);
-        button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
     });
 
     const confirmLabel = await getString('extend:confirm', 'quiz_livequizmonitor', minutes);
@@ -196,11 +240,44 @@ export const showExtendModal = async(config) => {
 
     modal.setSaveButtonText(await getString('extend:confirm', 'quiz_livequizmonitor', minutes));
 
+    const customInput = root.querySelector('[data-region="extend-custom"]');
+    const customError = root.querySelector('[data-region="extend-custom-error"]');
+    const saveButton = modal.getRoot().find('[data-action="save"]');
+
+    /**
+     * Re-validate the custom input's current value, and bring the preview,
+     * confirm button, and error text into line with it.
+     *
+     * @returns {Promise<void>}
+     */
+    const handleInputChange = async() => {
+        const parsed = parseValidMinutes(customInput.value);
+        const showError = customInput.value.trim() !== '' && parsed === null;
+
+        customInput.classList.toggle('is-invalid', showError);
+        if (customError) {
+            customError.textContent = showError
+                ? await getString('extend:custominvalid', 'quiz_livequizmonitor', MAX_CUSTOM_MINUTES)
+                : '';
+        }
+
+        if (parsed === null) {
+            saveButton.prop('disabled', true);
+            return;
+        }
+
+        minutes = parsed;
+        saveButton.prop('disabled', false);
+        await refreshPreview(root, config, strings, minutes, modal);
+    };
+
+    customInput.addEventListener('input', handleInputChange);
+
     root.querySelectorAll('.livequizmonitor-extend-preset').forEach((button) => {
         button.addEventListener('click', (event) => {
             event.preventDefault();
-            minutes = parseInt(button.dataset.minutes, 10);
-            updatePreview(root, config, strings, minutes, modal);
+            customInput.value = button.dataset.minutes;
+            customInput.dispatchEvent(new Event('input'));
         });
     });
 
@@ -208,7 +285,15 @@ export const showExtendModal = async(config) => {
 
     return new Promise((resolve) => {
         modal.getRoot().on(ModalEvents.save, async() => {
-            modal.getRoot().find('[data-action="save"]').prop('disabled', true);
+            // The confirm button is disabled whenever the input is invalid, but
+            // guard here too in case save is somehow triggered while it is.
+            const parsed = parseValidMinutes(customInput.value);
+            if (parsed === null) {
+                return;
+            }
+            minutes = parsed;
+
+            saveButton.prop('disabled', true);
             try {
                 const args = {
                     cmid: config.cmid,
@@ -252,7 +337,7 @@ export const showExtendModal = async(config) => {
                 modal.destroy();
                 resolve(response);
             } catch (error) {
-                modal.getRoot().find('[data-action="save"]').prop('disabled', false);
+                saveButton.prop('disabled', false);
                 Notification.exception(error);
             }
         });
