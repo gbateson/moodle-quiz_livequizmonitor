@@ -310,6 +310,24 @@ class MonitorMutations {
     }
 
     /**
+     * Set a student's note flag after their note is saved.
+     *
+     * @param {StateManager} stateManager
+     * @param {object} payload
+     * @param {number} payload.userid Student user id
+     * @param {boolean} payload.hasnote Whether the student now has a note
+     */
+    setStudentNote(stateManager, {userid, hasnote}) {
+        const student = stateManager.state.students.get(userid);
+        if (!student) {
+            return;
+        }
+        stateManager.setReadOnly(false);
+        student.hasnote = hasnote;
+        stateManager.setReadOnly(true);
+    }
+
+    /**
      * Decrement in-progress timers locally between polls.
      *
      * @param {StateManager} stateManager
