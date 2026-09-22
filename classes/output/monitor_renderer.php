@@ -37,9 +37,10 @@ class monitor_renderer extends plugin_renderer_base {
      *
      * @param stdClass $state Monitor state from monitor_manager.
      * @param int $groupid Active group id.
+     * @param string $groupmenu HTML of the standard group menu ('' if the activity has no group mode).
      * @return array Template context.
      */
-    public function export_for_template(stdClass $state, int $groupid): array {
+    public function export_for_template(stdClass $state, int $groupid, string $groupmenu = ''): array {
         $updated = userdate($state->updatedat, get_string('strftimetime', 'langconfig'));
         $canextend = !empty($state->canextend);
         $inprogresscount = (int) ($state->inprogresscount ?? $state->summary->inprogress->count);
@@ -98,7 +99,7 @@ class monitor_renderer extends plugin_renderer_base {
             ],
             'showemailcolumn' => !empty($state->students) && !empty($state->students[0]->showemail),
             'showactionscolumn' => true,
-            'filter' => $this->export_filter_context($state),
+            'filter' => $this->export_filter_context($state, $groupmenu),
             'filterempty' => get_string('filter:empty', 'quiz_livequizmonitor'),
         ];
     }
@@ -107,15 +108,28 @@ class monitor_renderer extends plugin_renderer_base {
      * Build filter toolbar template context.
      *
      * @param stdClass $state Monitor state from monitor_manager.
+     * @param string $groupmenu HTML of the standard group menu ('' if the activity has no group mode).
      * @return array Template context for filter partial.
      */
-    protected function export_filter_context(stdClass $state): array {
+    protected function export_filter_context(stdClass $state, string $groupmenu = ''): array {
         $summary = $state->summary;
+
+        // Add the label seperator, e.g. ": ", after the text of the groupmenu label.
+        // Use a callback to avoid problems with "$" and "/" in the separator.
+        if ($groupmenu) {
+            $groupmenu = preg_replace_callback(
+                '/(\S)(\s*<\/label>)/',
+                fn($m) => $m[1] . get_string('labelsep', 'langconfig') . $m[2],
+                $groupmenu,
+                1 // First occurrence only.
+            );
+        }
 
         return [
             'searchplaceholder' => get_string('filter:searchplaceholder', 'quiz_livequizmonitor'),
             'clearlabel' => get_string('filter:clear', 'quiz_livequizmonitor'),
             'chipsgrouplabel' => get_string('filter:toolbarlabel', 'quiz_livequizmonitor'),
+            'groupmenu' => $groupmenu,
             'chips' => [
                 [
                     'status' => 'all',
