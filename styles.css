@@ -156,6 +156,11 @@
     background-color: rgba(var(--bs-primary-rgb, 13, 110, 253), 0.08);
 }
 
+.form-control.livequizmonitor-extend-custom {
+    width: 4rem;
+    max-width: 100%;
+}
+
 .livequizmonitor-actions .action-menu {
     margin: 0;
 }
