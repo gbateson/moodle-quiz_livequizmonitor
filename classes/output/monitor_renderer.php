@@ -26,6 +26,7 @@ namespace quiz_livequizmonitor\output;
 
 use plugin_renderer_base;
 use quiz_livequizmonitor\local\column_helper;
+use quiz_livequizmonitor\local\manager\extend_time_manager;
 use quiz_livequizmonitor\local\manager\monitor_manager;
 use stdClass;
 
@@ -97,6 +98,7 @@ class monitor_renderer extends plugin_renderer_base {
             'summary' => (array) $state->summary,
             'students' => $students,
             'canextend' => $canextend,
+            'extendmaxminutes' => extend_time_manager::MAX_CUSTOM_MINUTES,
             'onesessionactive' => $onesessionactive,
             'canunblock' => $canunblock,
             'canviewattempts' => $canviewattempts,

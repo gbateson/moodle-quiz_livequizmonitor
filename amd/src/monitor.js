@@ -113,6 +113,7 @@ class MonitorComponent extends BaseComponent {
         this.showActionsColumn = root.dataset.showActions === '1';
         this.lastUpdatedPrefix = root.dataset.lastupdatedPrefix ?? '';
         this.canextend = root.dataset.canextend === '1';
+        this.extendMaxMinutes = parseInt(root.dataset.extendMaxMinutes ?? 0, 10);
         this.onesessionactive = root.dataset.onesessionActive === '1';
         this.canunblock = root.dataset.canunblock === '1';
     }
@@ -379,6 +380,7 @@ class MonitorComponent extends BaseComponent {
             mode: 'bulk',
             cmid: this.cmid,
             groupid: this.groupid,
+            maxminutes: this.extendMaxMinutes,
             inprogresscount: this.getInProgressCount(true),
         });
         if (response) {
@@ -420,6 +422,7 @@ class MonitorComponent extends BaseComponent {
             mode: 'individual',
             cmid: this.cmid,
             groupid: this.groupid,
+            maxminutes: this.extendMaxMinutes,
             userid: parseInt(trigger.dataset.userid, 10),
             studentname: trigger.dataset.studentname ?? '',
             attemptendat: parseInt(trigger.dataset.attemptendat, 10) || null,
