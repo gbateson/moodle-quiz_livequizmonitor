@@ -7,6 +7,7 @@
     {
         "filter": {
             "chipsgrouplabel": "Filter students",
+            "groupmenu": "<div class='groupselector'><label for='groupmenu'>Separate groups</label> <select id='groupmenu'><option>All participants</option></select></div>",
             "searchplaceholder": "Search students",
             "clearlabel": "Clear filters",
             "chips": [
@@ -35,6 +36,11 @@
                 {{label}} (<span data-filter-count="{{status}}">{{count}}</span>)
             </button>
         {{/filter.chips}}
+        {{#filter.groupmenu}}
+            <div class="livequizmonitor-group-menu" data-region="group-menu">
+                {{{filter.groupmenu}}}
+            </div>
+        {{/filter.groupmenu}}
         <button type="button" class="btn btn-outline-secondary" data-action="clear-filters">
             {{filter.clearlabel}}
         </button>

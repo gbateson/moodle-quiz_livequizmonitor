@@ -78,6 +78,15 @@
     gap: 0.5rem;
 }
 
+.livequizmonitor-group-menu .groupselector {
+    margin: 0;
+}
+
+.livequizmonitor-group-menu .groupselector form,
+.livequizmonitor-group-menu .groupselector .singleselect {
+    margin: 0;
+}
+
 .livequizmonitor-search-card {
     display: block;
     box-sizing: border-box;
