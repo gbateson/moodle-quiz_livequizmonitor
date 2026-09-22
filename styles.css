@@ -200,6 +200,12 @@
     color: rgb(255, 59, 59);
 }
 
+.livequizmonitor-student-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
 .livequizmonitor-row-actions .dropdown-item .fa-unlock {
     margin-right: 0.5rem;
 }
