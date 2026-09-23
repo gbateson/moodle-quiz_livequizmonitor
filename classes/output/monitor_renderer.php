@@ -83,6 +83,7 @@ class monitor_renderer extends plugin_renderer_base {
             $student['useroverrideflaglabel'] = get_string('filter:useroverrideflag', 'quiz_livequizmonitor');
             $student['usertimeoverrideflaglabel'] = get_string('filter:usertimeoverrideflag', 'quiz_livequizmonitor');
             $student['groupoverrideflaglabel'] = get_string('filter:groupoverrideflag', 'quiz_livequizmonitor');
+            $student['noteflaglabel'] = get_string('notes:hasnoteflag', 'quiz_livequizmonitor');
             $students[] = $student;
         }
 
@@ -122,6 +123,7 @@ class monitor_renderer extends plugin_renderer_base {
             'useroverrideflaglabel' => get_string('filter:useroverrideflag', 'quiz_livequizmonitor'),
             'usertimeoverrideflaglabel' => get_string('filter:usertimeoverrideflag', 'quiz_livequizmonitor'),
             'groupoverrideflaglabel' => get_string('filter:groupoverrideflag', 'quiz_livequizmonitor'),
+            'noteflaglabel' => get_string('notes:hasnoteflag', 'quiz_livequizmonitor'),
             'actionsmenulabel' => get_string('actions'),
             'columns' => $this->export_columns($state, $showemailcolumn),
             'hiddencolumnsjson' => json_encode(column_helper::get_hidden_columns()),

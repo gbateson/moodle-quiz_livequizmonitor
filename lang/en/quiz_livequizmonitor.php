@@ -89,6 +89,7 @@ $string['notes:editlabel'] = 'Edit note';
 $string['notes:errorload'] = 'Could not load note.';
 $string['notes:errorsave'] = 'Could not save note.';
 $string['notes:errortoolong'] = 'Note must be 2000 characters or fewer.';
+$string['notes:hasnoteflag'] = 'This student has a note';
 $string['notes:modalbody'] = 'Add a supervision note for this student.';
 $string['notes:modaltitle'] = 'Note for {$a}';
 $string['notes:save'] = 'Save';

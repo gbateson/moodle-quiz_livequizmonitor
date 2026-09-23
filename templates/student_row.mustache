@@ -30,6 +30,7 @@
         "hasusertimeoverride": false,
         "hastimeoverride": false,
         "usertimeoverrideflaglabel": "This student has a time-related override",
+        "noteflaglabel": "This student has a note",
         "canextend": true,
         "extendrowlabel": "Extend time",
         "extendactionenabled": true,
@@ -50,6 +51,11 @@
     <td data-column="student" data-field="fullname">
         <span data-colcontent="student">
             {{fullname}}
+            {{#hasnote}}
+            <i class="fa-solid fa-book livequizmonitor-note-flag"
+               title="{{noteflaglabel}}"
+               aria-label="{{noteflaglabel}}"></i>
+            {{/hasnote}}
             {{#hasuseroverride}}
             <i class="fa-solid fa-user-gear livequizmonitor-override-flag" data-override-badge="user"
                title="{{useroverrideflaglabel}}"

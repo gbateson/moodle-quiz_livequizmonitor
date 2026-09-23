@@ -94,4 +94,3 @@ Feature: Filter by standard group in live quiz monitor
     Then I should see "Student ONE" in the "[data-region='student-table']" "css_element"
     And I should see "Student TWO" in the "[data-region='student-table']" "css_element"
     And I should see "Student THREE" in the "[data-region='student-table']" "css_element"
-

@@ -290,6 +290,10 @@
     font-size: 0.85em;
 }
 
+.livequizmonitor-note-flag {
+    margin-left: 0.35rem;
+}
+
 .livequizmonitor-row-actions .dropdown-item .fa-unlock {
     margin-right: 0.5rem;
 }

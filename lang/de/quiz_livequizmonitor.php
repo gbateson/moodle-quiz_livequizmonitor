@@ -89,6 +89,7 @@ $string['notes:editlabel'] = 'Notiz bearbeiten';
 $string['notes:errorload'] = 'Notiz konnte nicht geladen werden.';
 $string['notes:errorsave'] = 'Notiz konnte nicht gespeichert werden.';
 $string['notes:errortoolong'] = 'Die Notiz darf höchstens 2000 Zeichen lang sein.';
+$string['notes:hasnoteflag'] = 'Für diese Person liegt eine Notiz vor';
 $string['notes:modalbody'] = 'Supervisionsnotiz für diese Person hinzufügen.';
 $string['notes:modaltitle'] = 'Notiz für {$a}';
 $string['notes:save'] = 'Speichern';

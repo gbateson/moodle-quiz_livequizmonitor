@@ -98,6 +98,7 @@ class MonitorComponent extends BaseComponent {
         this.pollTimer = null;
         this.tickTimer = null;
         this.pollInFlight = false;
+        this.pollQueued = false;
         this.syncInFlight = false;
         this.syncQueued = false;
         this.hasReceivedPoll = false;
@@ -142,6 +143,7 @@ class MonitorComponent extends BaseComponent {
         this.userOverrideFlagLabel = root.dataset.useroverrideFlagLabel ?? 'Has extension';
         this.userTimeOverrideFlagLabel = root.dataset.usertimeoverrideFlagLabel ?? 'Time-related override';
         this.groupOverrideFlagLabel = root.dataset.groupoverrideFlagLabel ?? 'With group override';
+        this.noteFlagLabel = root.dataset.noteFlagLabel ?? 'This student has a note';
     }
 
     /**
@@ -358,6 +360,7 @@ class MonitorComponent extends BaseComponent {
             if (link) {
                 this.updateNoteActionLink(link, {hasnote: response.hasnote});
             }
+            this.updateNoteFlag(row, {hasnote: response.hasnote});
         }
 
         this.poll();
@@ -682,6 +685,12 @@ class MonitorComponent extends BaseComponent {
      */
     async poll() {
         if (this.pollInFlight) {
+            // A poll already in flight was dispatched before this call, so its
+            // response may reflect state from before whatever just changed
+            // (e.g. a note save). Queue a follow-up poll rather than dropping
+            // this request, so the caller is guaranteed a fetch that starts
+            // after their change, not just whichever one happened to be en route.
+            this.pollQueued = true;
             return;
         }
 
@@ -716,6 +725,10 @@ class MonitorComponent extends BaseComponent {
             this.reactive.dispatch('setStale', true);
         } finally {
             this.pollInFlight = false;
+            if (this.pollQueued) {
+                this.pollQueued = false;
+                await this.poll();
+            }
         }
     }
 
@@ -910,6 +923,7 @@ class MonitorComponent extends BaseComponent {
             hasusertimeoverride: !!student.hasusertimeoverride,
             hastimeoverride: !!student.hastimeoverride,
             usertimeoverrideflaglabel: this.userTimeOverrideFlagLabel,
+            noteflaglabel: this.noteFlagLabel,
             attemptendat: student.attemptendat ?? '',
             attemptid: student.attemptid ?? '',
             notelabel: student.hasnote ? this.noteEditLabel : this.noteAddLabel,
@@ -1101,6 +1115,7 @@ class MonitorComponent extends BaseComponent {
         }
         this.updateOverrideFlag(row, student);
         this.updateTimeOverrideFlag(row, student);
+        this.updateNoteFlag(row, student);
         this.renderRowActions(student, row);
     }
 
@@ -1487,6 +1502,37 @@ class MonitorComponent extends BaseComponent {
         } else {
             link.setAttribute('aria-disabled', 'true');
             link.setAttribute('tabindex', '-1');
+        }
+    }
+
+    /**
+     * Show or hide the note flag beside the student's name.
+     *
+     * Mirrors updateBlockedFlag(): the name cell is never rebuilt wholesale on
+     * poll (see updateStudentRow()), so this icon needs its own live patch or
+     * it would go stale for a row that already exists in the DOM when a note
+     * is added or removed mid-session.
+     *
+     * @param {HTMLElement} row Table row element
+     * @param {object} student Student state row
+     */
+    updateNoteFlag(row, student) {
+        const nameCell = row.querySelector('[data-field="fullname"]');
+        if (!nameCell) {
+            return;
+        }
+
+        let flag = nameCell.querySelector('.livequizmonitor-note-flag');
+        if (student.hasnote) {
+            if (!flag) {
+                const flagTitle = this.escapeHtml(this.noteFlagLabel);
+                nameCell.insertAdjacentHTML('beforeend',
+                    '<i class="fa-solid fa-book livequizmonitor-note-flag" ' +
+                    `title="${flagTitle}" aria-label="${flagTitle}"></i>`
+                );
+            }
+        } else if (flag) {
+            flag.remove();
         }
     }
 
