@@ -23,6 +23,7 @@
         "actionsmenulabel": "Actions",
         "notelabel": "Add note",
         "hasnote": false,
+        "noteflaglabel": "This student has a note",
         "canextend": true,
         "extendrowlabel": "Extend time",
         "extendactionenabled": true,
@@ -38,7 +39,16 @@
     <td>
         <span class="badge {{statusclass}}">{{statuslabel}}</span>
     </td>
-    <td>{{fullname}}</td>
+    <td data-field="fullname">
+        <span class="livequizmonitor-student-name">
+            {{fullname}}
+            {{#hasnote}}
+            <i class="fa-solid fa-book livequizmonitor-note-flag"
+               title="{{noteflaglabel}}"
+               aria-label="{{noteflaglabel}}"></i>
+            {{/hasnote}}
+        </span>
+    </td>
     {{#showemailcolumn}}
     <td>{{email}}</td>
     {{/showemailcolumn}}
