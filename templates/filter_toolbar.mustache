@@ -14,6 +14,7 @@
             "labelsep": ": ",
             "resetalllabel": "Reset all filters",
             "namelabel": "Name",
+            "groupmenu": "<div class='groupselector'><label for='groupmenu'>Separate groups</label> <select id='groupmenu'><option>All participants</option></select></div>",
             "searchplaceholder": "Search students",
             "statuslabel": "Status",
             "chips": [
@@ -68,6 +69,13 @@
                 {{/filter.chips}}
             </div>
         </div>
+        {{#filter.groupmenu}}
+        <div class="livequizmonitor-filter-group" data-filter-group="group">
+            <div class="livequizmonitor-filter-group-controls livequizmonitor-group-menu" data-region="group-menu">
+                {{{filter.groupmenu}}}
+            </div>
+        </div>
+        {{/filter.groupmenu}}
         {{#filter.canviewoverrides}}
         <div class="livequizmonitor-filter-group" data-filter-group="overrides">
             <span class="livequizmonitor-filter-group-label">{{filter.overridesgrouplabel}}{{filter.labelsep}}</span>

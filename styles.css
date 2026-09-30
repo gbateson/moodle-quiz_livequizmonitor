@@ -125,6 +125,23 @@
     gap: 0.5rem;
 }
 
+/* Mimic styles of .livequizmonitor-filter-group-label */
+.livequizmonitor-group-menu label {
+    font-size: .95em;
+    font-weight: 600;
+    color: var(--bs-secondary-color, #6c757d);
+}
+/* Insert label separator */
+.livequizmonitor-group-menu label:after {
+    content: ":";
+}
+
+.livequizmonitor-group-menu .groupselector,
+.livequizmonitor-group-menu .groupselector form,
+.livequizmonitor-group-menu .groupselector .singleselect {
+    margin: 0;
+}
+
 .livequizmonitor-search-card {
     display: block;
     flex: 1 1 12rem;
