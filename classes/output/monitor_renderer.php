@@ -37,9 +37,10 @@ class monitor_renderer extends plugin_renderer_base {
      *
      * @param stdClass $state Monitor state from monitor_manager.
      * @param int $groupid Active group id.
+     * @param string $groupmenu HTML of the standard group menu ('' if the activity has no group mode).
      * @return array Template context.
      */
-    public function export_for_template(stdClass $state, int $groupid): array {
+    public function export_for_template(stdClass $state, int $groupid, string $groupmenu = ''): array {
         $updated = userdate($state->updatedat, get_string('strftimetime', 'langconfig'));
         $canextend = !empty($state->canextend);
         $inprogresscount = (int) ($state->inprogresscount ?? $state->summary->inprogress->count);
@@ -146,7 +147,7 @@ class monitor_renderer extends plugin_renderer_base {
             'showemailcolumn' => $showemailcolumn,
             'showactionscolumn' => true, // Always show Actions column.
             'actionscolumnlabel' => get_string('table:actions', 'quiz_livequizmonitor'),
-            'filter' => $this->export_filter_context($state),
+            'filter' => $this->export_filter_context($state, $groupmenu),
             'filterempty' => get_string('filter:empty', 'quiz_livequizmonitor'),
             'sortascending' => get_string('asc'),
             'sortdescending' => get_string('desc'),
@@ -157,15 +158,17 @@ class monitor_renderer extends plugin_renderer_base {
      * Build filter toolbar template context.
      *
      * @param stdClass $state Monitor state from monitor_manager.
+     * @param string $groupmenu HTML of the standard group menu ('' if the activity has no group mode).
      * @return array Template context for filter partial.
      */
-    protected function export_filter_context(stdClass $state): array {
+    protected function export_filter_context(stdClass $state, string $groupmenu = ''): array {
         $summary = $state->summary;
 
         return [
             'searchplaceholder' => get_string('filter:searchplaceholder', 'quiz_livequizmonitor'),
             'clearlabel' => get_string('filter:clear', 'quiz_livequizmonitor'),
             'chipsgrouplabel' => get_string('filter:toolbarlabel', 'quiz_livequizmonitor'),
+            'groupmenu' => $groupmenu,
             'chips' => [
                 [
                     'status' => 'all',
