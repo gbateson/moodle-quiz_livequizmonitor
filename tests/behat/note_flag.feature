@@ -60,5 +60,4 @@ Feature: Note flag icon in live quiz monitor
     And I click on "Edit note" "link"
     And I set the field "Add a supervision note for this student." to ""
     And I click on "Save" "button"
-    And I wait "6" seconds
     Then ".livequizmonitor-note-flag" "css_element" should not exist

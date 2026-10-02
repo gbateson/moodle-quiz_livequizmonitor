@@ -95,6 +95,7 @@ class MonitorComponent extends BaseComponent {
         this.tickTimer = null;
         this.pollInFlight = false;
         this.pollQueued = false;
+        this.localgeneration = 0;
         this.syncInFlight = false;
         this.syncQueued = false;
         this.hasReceivedPoll = false;

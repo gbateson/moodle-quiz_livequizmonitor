@@ -125,7 +125,7 @@ export const showStudentNoteModal = async(config) => {
     let finished = false;
 
     return new Promise((resolve) => {
-        modal.getRoot().on(ModalEvents.save, async() => {
+        modal.getRoot().on(ModalEvents.save, async(event) => {
             // Keep the modal open until the save request has returned.
             event.preventDefault();
 

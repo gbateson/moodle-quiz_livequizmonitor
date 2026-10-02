@@ -39,7 +39,7 @@ class monitor_renderer extends plugin_renderer_base {
      *
      * @var string[]
      */
-    protected const SORTABLE_COLUMNS = ['status', 'student', 'email', 'progress', 'timeremaining']; 
+    protected const SORTABLE_COLUMNS = ['status', 'student', 'email', 'progress', 'timeremaining'];
 
     /**
      * Prepare template context from monitor state.
