@@ -26,6 +26,11 @@ import Notification from 'core/notification';
 import Templates from 'core/templates';
 import {BaseComponent} from 'core/reactive';
 import {matchesFilters, countVisible} from 'quiz_livequizmonitor/filter_utils';
+import {
+    parseHiddenColumns,
+    applyColumnVisibility,
+    saveHiddenColumns,
+} from 'quiz_livequizmonitor/column_visibility';
 import {createMonitorReactive, formatDuration} from 'quiz_livequizmonitor/reactive/monitor_state';
 import {showPasswordModal} from 'quiz_livequizmonitor/show_password_modal';
 import {showExtendModal} from 'quiz_livequizmonitor/extend_time_modal';
@@ -43,6 +48,18 @@ class MonitorComponent extends BaseComponent {
      * @param {object} descriptor Component descriptor
      */
     create(descriptor) {
+        this.initSelectors();
+        this.initPollState();
+
+        const root = descriptor.element ?? this.element;
+        this.initIdsAndFlags(descriptor, root);
+        this.initLabels(root);
+    }
+
+    /**
+     * Cache CSS selectors used throughout the component.
+     */
+    initSelectors() {
         this.selectors = {
             LASTUPDATED: '[data-region="last-updated"]',
             STALE: '[data-region="stale-indicator"]',
@@ -57,6 +74,7 @@ class MonitorComponent extends BaseComponent {
             TIMER: '[data-field="timer"]',
             SEARCHINPUT: '[data-action="search"]',
             FILTERCHIP: '.livequizmonitor-filter-toolbar [data-action="filter-status"]',
+            FILTERFLAG: '.livequizmonitor-filter-toolbar [data-action="filter-flag"]',
             CLEARFILTERS: '[data-action="clear-filters"]',
             FILTEREMPTY: '[data-region="filter-empty"]',
             STUDENTTABLE: '[data-region="student-table"]',
@@ -64,8 +82,15 @@ class MonitorComponent extends BaseComponent {
             EMPTYCOHORT: '[data-region="empty-cohort"]',
             SUMMARYTILE: '.livequizmonitor-summary-tile',
             EXTENDBULK: '[data-action="extend-bulk"]',
+            COLUMNTOGGLE: '[data-action="toggle-column"]',
             SHOWPASSWORD: '[data-action="show-password"]',
         };
+    }
+
+    /**
+     * Initialise polling/sync state flags.
+     */
+    initPollState() {
         this.pollTimer = null;
         this.tickTimer = null;
         this.pollInFlight = false;
@@ -73,23 +98,48 @@ class MonitorComponent extends BaseComponent {
         this.syncInFlight = false;
         this.syncQueued = false;
         this.hasReceivedPoll = false;
-        const root = descriptor.element ?? this.element;
-        this.cmid = parseInt(descriptor.cmid ?? root.dataset.cmid, 10);
+    }
+
+    /**
+     * Read ids and boolean capability/visibility flags from the descriptor and dataset.
+     *
+     * @param {object} descriptor Component descriptor
+     * @param {HTMLElement} root Root element
+     */
+    initIdsAndFlags(descriptor, root) {
+        this.cmid = parseInt(descriptor.cmid ?? root.dataset.cmid ?? 0, 10);
         this.groupid = parseInt(descriptor.groupid ?? root.dataset.groupid ?? 0, 10);
+        this.courseId = parseInt(descriptor.courseid ?? root.dataset.courseid ?? 1, 10);
         this.showEmailColumn = root.dataset.showEmail === '1';
         this.showActionsColumn = root.dataset.showActions === '1';
         this.lastUpdatedPrefix = root.dataset.lastupdatedPrefix ?? '';
+        this.canextend = root.dataset.canextend === '1';
+        this.onesessionactive = root.dataset.onesessionActive === '1';
+        this.canunblock = root.dataset.canunblock === '1';
+    }
+
+    /**
+     * Read display label strings from the dataset.
+     *
+     * @param {HTMLElement} root Root element
+     */
+    initLabels(root) {
         this.extendRowLabel = root.dataset.extendRowLabel ?? 'Extend time';
         this.noteAddLabel = root.dataset.notesAddLabel ?? 'Add note';
         this.noteEditLabel = root.dataset.notesEditLabel ?? 'Edit note';
         this.actionsMenuLabel = root.dataset.actionsMenuLabel ?? 'Actions';
-        this.canextend = root.dataset.canextend === '1';
-        this.onesessionactive = root.dataset.onesessionActive === '1';
-        this.canunblock = root.dataset.canunblock === '1';
         this.unblockRowLabel = root.dataset.unblockLabel ?? 'Unblock user';
         this.blockedFlagLabel = root.dataset.blockedFlagLabel ?? 'Blocked';
+        this.showAttemptsLabel = root.dataset.showAttemptsLabel ?? 'Show attempts';
+        this.canviewattempts = root.dataset.canviewattempts === '1';
+        this.showLogsLabel = root.dataset.showLogsLabel ?? 'Show logs';
+        this.canviewlogs = root.dataset.canviewlogs === '1';
         this.sortAscendingLabel = root.dataset.sortAscending ?? 'Ascending';
         this.sortDescendingLabel = root.dataset.sortDescending ?? 'Descending';
+        this.userOverrideFlagLabel = root.dataset.useroverrideFlagLabel ?? 'Has extension';
+        this.userTimeOverrideFlagLabel = root.dataset.usertimeoverrideFlagLabel ?? 'Time-related override';
+        this.groupOverrideFlagLabel = root.dataset.groupoverrideFlagLabel ?? 'With group override';
+        this.hiddenColumns = parseHiddenColumns(root);
         this.noteFlagLabel = root.dataset.noteFlagLabel ?? 'This student has a note';
     }
 
@@ -128,6 +178,11 @@ class MonitorComponent extends BaseComponent {
             {watch: 'students.canextend:updated', handler: this.renderStudents},
             {watch: 'students.attemptendat:updated', handler: this.renderStudents},
             {watch: 'students.hasnote:updated', handler: this.renderStudents},
+            {watch: 'students.hasuseroverride:updated', handler: this.renderStudents},
+            {watch: 'students.hasusertimeoverride:updated', handler: this.renderStudents},
+            {watch: 'students.hasgroupoverride:updated', handler: this.renderStudents},
+            {watch: 'students.hasgrouptimeoverride:updated', handler: this.renderStudents},
+            {watch: 'students.hastimeoverride:updated', handler: this.renderStudents},
             {watch: 'students.isblocked:updated', handler: this.renderStudents},
             {watch: 'students.unblockactionenabled:updated', handler: this.renderStudents},
             {watch: 'meta.onesessionactive:updated', handler: this.renderStudents},
@@ -141,6 +196,9 @@ class MonitorComponent extends BaseComponent {
             {watch: 'meta.totalstudents:updated', handler: this.renderFilterToolbar},
             {watch: 'meta.sortcolumn:updated', handler: this.renderSortIndicators},
             {watch: 'meta.sortdirection:updated', handler: this.renderSortIndicators},
+            {watch: 'meta.useroverridecount:updated', handler: this.renderFilterToolbar},
+            {watch: 'meta.groupoverridecount:updated', handler: this.renderFilterToolbar},
+            {watch: 'meta.canviewoverrides:updated', handler: this.renderFilterToolbar},
         ];
     }
 
@@ -152,11 +210,61 @@ class MonitorComponent extends BaseComponent {
         this.bindSortEvents();
         this.bindExtendEvents();
         this.bindNoteEvents();
+        this.bindColumnToggleEvents();
         this.startPolling();
         this.startTimerTick();
         this.renderCohortLayout();
         this.renderFilterToolbar();
         this.renderBulkExtendButton();
+        this.renderColumnVisibility();
+    }
+
+    /**
+     * Bind clicks on the per-column +/- hide/show toggle buttons.
+     */
+    bindColumnToggleEvents() {
+        this.addEventListener(this.element, 'click', this.handleColumnToggleClick);
+    }
+
+    /**
+     * Toggle a column's hidden state, reflect it immediately, and persist it.
+     *
+     * @param {Event} event
+     */
+    handleColumnToggleClick(event) {
+        const button = event.target.closest(this.selectors.COLUMNTOGGLE);
+        if (!button || !this.element.contains(button)) {
+            return;
+        }
+        event.preventDefault();
+
+        const column = button.dataset.column;
+        if (!column) {
+            return;
+        }
+
+        if (this.hiddenColumns.has(column)) {
+            this.hiddenColumns.delete(column);
+        } else {
+            this.hiddenColumns.add(column);
+        }
+
+        this.renderColumnVisibility();
+
+        saveHiddenColumns(this.cmid, this.hiddenColumns).catch((e) => {
+            Notification.exception(e);
+        });
+    }
+
+    /**
+     * Re-apply hidden-column state to every column-aware element in the table.
+     *
+     * Called on init, after a toggle click, and after every reactive row
+     * sync so newly inserted rows immediately respect the current
+     * preference too.
+     */
+    renderColumnVisibility() {
+        applyColumnVisibility(this.element, this.hiddenColumns);
     }
 
     /**
@@ -393,6 +501,7 @@ class MonitorComponent extends BaseComponent {
         }
 
         this.addEventListener(this.element, 'click', this.handleFilterClick);
+        this.addEventListener(this.element, 'click', this.handleFlagFilterClick);
 
         const clearBtn = this.getElement(this.selectors.CLEARFILTERS);
         if (clearBtn) {
@@ -435,6 +544,25 @@ class MonitorComponent extends BaseComponent {
         }
         event.preventDefault();
         this.reactive.dispatch('setStatusFilter', status);
+        this.afterFilterChange();
+    }
+
+    /**
+     * Delegate clicks on boolean flag toggle buttons (e.g. "Has extension").
+     *
+     * @param {Event} event
+     */
+    handleFlagFilterClick(event) {
+        const trigger = event.target.closest('[data-action="filter-flag"]');
+        if (!trigger || !this.element.contains(trigger)) {
+            return;
+        }
+        const flag = trigger.dataset.flag;
+        if (!flag) {
+            return;
+        }
+        event.preventDefault();
+        this.reactive.dispatch('setFlagFilter', flag);
         this.afterFilterChange();
     }
 
@@ -760,8 +888,12 @@ class MonitorComponent extends BaseComponent {
     buildStudentRowContext(student) {
         const canextend = !!(student.canextend ?? this.canextend);
         return {
+            courseid: student.courseid ?? this.courseId,
+            cmid: student.cmid ?? this.cmid,
             userid: student.userid ?? student.id,
-            fullname: student.fullname ?? '',
+            fullname: student.fullname,
+            firstinitial: student.firstinitial,
+            lastinitial: student.lastinitial,
             email: student.email ?? '',
             statusclass: student.statusclass ?? '',
             statuslabel: student.statuslabel ?? '',
@@ -779,6 +911,13 @@ class MonitorComponent extends BaseComponent {
             unblockactionenabled: !!student.unblockactionenabled,
             isblocked: !!student.isblocked,
             hasnote: !!student.hasnote,
+            hasuseroverride: !!student.hasuseroverride,
+            useroverrideflaglabel: this.userOverrideFlagLabel,
+            hasgroupoverride: !!student.hasgroupoverride,
+            groupoverrideflaglabel: this.groupOverrideFlagLabel,
+            hasusertimeoverride: !!student.hasusertimeoverride,
+            hastimeoverride: !!student.hastimeoverride,
+            usertimeoverrideflaglabel: this.userTimeOverrideFlagLabel,
             noteflaglabel: this.noteFlagLabel,
             attemptendat: student.attemptendat ?? '',
             attemptid: student.attemptid ?? '',
@@ -786,7 +925,11 @@ class MonitorComponent extends BaseComponent {
             extendrowlabel: this.extendRowLabel,
             unblocklabel: this.unblockRowLabel,
             blockedflaglabel: this.blockedFlagLabel,
+            showattemptslabel: this.showAttemptsLabel,
+            showlogslabel: this.showLogsLabel,
+            canviewlogs: this.canviewlogs,
             actionsmenulabel: this.actionsMenuLabel,
+            canviewattempts: this.canviewattempts,
         };
     }
 
@@ -911,6 +1054,7 @@ class MonitorComponent extends BaseComponent {
 
             this.applyRowVisibility();
             this.renderFilterEmpty();
+            this.renderColumnVisibility();
         } finally {
             this.syncInFlight = false;
             if (this.syncQueued) {
@@ -964,6 +1108,8 @@ class MonitorComponent extends BaseComponent {
                 timer.textContent = '—';
             }
         }
+        this.updateOverrideFlag(row, student);
+        this.updateTimeOverrideFlag(row, student);
         this.updateNoteFlag(row, student);
         this.renderRowActions(student, row);
     }
@@ -1012,6 +1158,24 @@ class MonitorComponent extends BaseComponent {
             const countEl = chip.querySelector(`[data-filter-count="${status}"]`);
             if (countEl && status in counts) {
                 countEl.textContent = counts[status];
+            }
+        });
+
+        const flagcounts = {
+            useroverride: state.meta?.useroverridecount ?? 0,
+            groupoverride: state.meta?.groupoverridecount ?? 0,
+        };
+        this.element.querySelectorAll(this.selectors.FILTERFLAG).forEach((flagbtn) => {
+            const flag = flagbtn.dataset.flag;
+            const isActive = !!state.meta?.filters?.[flag];
+            flagbtn.classList.toggle('btn-primary', isActive);
+            flagbtn.classList.toggle('btn-outline-secondary', !isActive);
+            flagbtn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+            if (flag in flagcounts) {
+                const countEl = flagbtn.querySelector(`[data-filter-count="${flag}"]`);
+                if (countEl) {
+                    countEl.textContent = flagcounts[flag];
+                }
             }
         });
 
@@ -1133,6 +1297,7 @@ class MonitorComponent extends BaseComponent {
         const actionslabel = this.escapeHtml(this.actionsMenuLabel);
         const unblocklabel = this.escapeHtml(this.unblockRowLabel);
         const blockedflaglabel = this.escapeHtml(this.blockedFlagLabel);
+        const logslabel = this.escapeHtml(this.showLogsLabel);
         const notelabel = this.escapeHtml(student.hasnote ? this.noteEditLabel : this.noteAddLabel);
         const hasnote = student.hasnote ? '1' : '0';
         const showextend = !!(student.canextend ?? this.canextend);
@@ -1146,32 +1311,56 @@ class MonitorComponent extends BaseComponent {
         const isblocked = !!(student.isblocked);
 
         const extendItem = showextend ? `
-                    <a href="#"
-                       class="dropdown-item menu-action${extenddisabledClass}"
-                       role="menuitem"
-                       data-action="extend-individual"
-                       data-userid="${userid}"
-                       data-studentname="${fullname}"
-                       data-attemptendat="${attemptendat}"${extenddisabledAttrs}>
-                        <i class="fa-solid fa-clock" aria-hidden="true"></i>
-                        <span class="menu-action-text">${extendlabel}</span>
-                    </a>` : '';
+                        <a href="#"
+                            class="dropdown-item menu-action${extenddisabledClass}"
+                            role="menuitem"
+                            data-action="extend-individual"
+                            data-userid="${userid}"
+                            data-studentname="${fullname}"
+                            data-attemptendat="${attemptendat}"${extenddisabledAttrs}>
+                                <i class="fa-solid fa-clock" aria-hidden="true"></i>
+                                <span class="menu-action-text">${extendlabel}</span>
+                        </a>` : '';
 
         const unblockItem = onesessionactive ? `
-                    <a href="#"
-                       class="dropdown-item menu-action${unblockdisabledClass}"
-                       role="menuitem"
-                       data-action="unblock-student"
-                       data-userid="${userid}"
-                       data-studentname="${fullname}"
-                       data-attemptid="${attemptid}"${unblockdisabledAttrs}>
-                        <i class="fa-solid fa-unlock" aria-hidden="true"></i>
-                        <span class="menu-action-text">${unblocklabel}</span>
-                    </a>` : '';
+                        <a href="#"
+                            class="dropdown-item menu-action${unblockdisabledClass}"
+                            role="menuitem"
+                            data-action="unblock-student"
+                            data-userid="${userid}"
+                            data-studentname="${fullname}"
+                            data-attemptid="${attemptid}"${unblockdisabledAttrs}>
+                                <i class="fa-solid fa-unlock" aria-hidden="true"></i>
+                                <span class="menu-action-text">${unblocklabel}</span>
+                        </a>` : '';
 
         const flagHtml = isblocked
             ? `<i class="fa-solid fa-flag livequizmonitor-blocked-flag" title="${blockedflaglabel}" aria-hidden="true"></i>`
             : '';
+
+        // To reduce code complexity, as measured by Grunt,
+        // the attemptsItem html is built in a separate function.
+        const attemptsItem = this.buildAttemptsItemHtml(student);
+
+        const logsParams = new URLSearchParams({
+            chooselog: 1,
+            id: this.courseid,
+            user: userid,
+            modid: this.cmid,
+            showusers: 0,
+            showcourses: 0,
+        });
+
+        const logsItem = this.canviewlogs ? `
+                        <a href="${M.cfg.wwwroot}/report/log/index.php?${logsParams.toString()}"
+                           class="dropdown-item menu-action"
+                           role="menuitem"
+                           target="_blank">
+                            <i class="fa-solid fa-clipboard-list" aria-hidden="true"></i>
+                            <span class="menu-action-text">${logslabel}</span>
+                            <i class="fa-solid fa-up-right-from-square" aria-hidden="true"
+                               title="${M.util.get_string('opensinnewwindow', 'core')}"></i>
+                        </a>` : '';
 
         return `
             <div class="livequizmonitor-actions-inner">
@@ -1195,11 +1384,49 @@ class MonitorComponent extends BaseComponent {
                            data-hasnote="${hasnote}">
                             <i class="fa-solid fa-book" aria-hidden="true"></i>
                             <span class="menu-action-text">${notelabel}</span>
-                        </a>${extendItem}${unblockItem}
+                        </a>${extendItem}${unblockItem}${attemptsItem}${logsItem}
                     </div>
                 </div>${flagHtml}
             </div>
         `;
+    }
+
+    /**
+     * Build the menu item for viewing student attempts.
+     *
+     * @param {object} student data about the current student.
+     * @returns {string} HTML for the attempts menu item.
+     */
+    buildAttemptsItemHtml(student) {
+        if (!this.canviewattempts) {
+            return '';
+        }
+
+        const attemptsParams = new URLSearchParams({
+            id: this.cmid,
+            mode: 'overview',
+        });
+
+        if (student.firstinitial) {
+            attemptsParams.set('tifirst', student.firstinitial);
+        }
+
+        if (student.lastinitial) {
+            attemptsParams.set('tilast', student.lastinitial);
+        }
+
+        const attemptslabel = this.escapeHtml(this.showAttemptsLabel);
+
+        return `
+                        <a href="${M.cfg.wwwroot}/mod/quiz/report.php?${attemptsParams.toString()}"
+                           class="dropdown-item menu-action"
+                           role="menuitem"
+                           target="_blank">
+                            <i class="fa-solid fa-table-list" aria-hidden="true"></i>
+                            <span class="menu-action-text">${attemptslabel}</span>
+                            <i class="fa-solid fa-up-right-from-square" aria-hidden="true"
+                               title="${M.util.get_string('opensinnewwindow', 'core')}"></i>
+                        </a>`;
     }
 
     /**
@@ -1314,6 +1541,88 @@ class MonitorComponent extends BaseComponent {
         } else if (flag) {
             flag.remove();
         }
+    }
+
+    /**
+     * Show or hide the override badge beside the student's name.
+     *
+     * A student can have a user override or a (relevant) group override,
+     * never both - monitor_manager suppresses hasgroupoverride whenever
+     * hasuseroverride is true, since a user override always takes
+     * precedence in core. So this picks at most one icon to show.
+     *
+     * @param {HTMLElement} row Table row element
+     * @param {object} student Student state row
+     */
+    updateOverrideFlag(row, student) {
+        const nameCell = row.querySelector('[data-field="fullname"]');
+        if (!nameCell) {
+            return;
+        }
+
+        let type = null;
+        if (student.hasuseroverride) {
+            type = 'user';
+        } else if (student.hasgroupoverride) {
+            type = 'group';
+        }
+
+        const flag = nameCell.querySelector('.livequizmonitor-override-flag');
+        if (!type) {
+            if (flag) {
+                flag.remove();
+            }
+            return;
+        }
+
+        if (flag && flag.dataset.overrideBadge === type) {
+            return;
+        }
+        if (flag) {
+            flag.remove();
+        }
+
+        const icon = type === 'user' ? 'fa-user-gear' : 'fa-users-gear';
+        const label = type === 'user' ? this.userOverrideFlagLabel : this.groupOverrideFlagLabel;
+        const flagTitle = this.escapeHtml(label);
+        nameCell.insertAdjacentHTML('beforeend',
+            `<i class="fa-solid ${icon} livequizmonitor-override-flag" data-override-badge="${type}" ` +
+            `title="${flagTitle}" aria-label="${flagTitle}"></i>`
+        );
+    }
+
+    /**
+     * Show or hide the time-related override badge beside the timer.
+     *
+     * Generic: fires for a time-related override from either a user or a
+     * (relevant) group override - the badge itself doesn't distinguish
+     * which source it came from.
+     *
+     * @param {HTMLElement} row Table row element
+     * @param {object} student Student state row
+     */
+    updateTimeOverrideFlag(row, student) {
+        const timeCell = row.querySelector('[data-field="timeremaining"]');
+        if (!timeCell) {
+            return;
+        }
+
+        let flag = timeCell.querySelector('.livequizmonitor-override-flag-timer');
+        if (!student.hastimeoverride) {
+            flag?.remove();
+            return;
+        }
+
+        if (!flag) {
+            flag = document.createElement('i');
+            flag.className = 'fa-solid fa-clock livequizmonitor-override-flag livequizmonitor-override-flag-timer';
+            timeCell.append(flag);
+        }
+
+        // The label depends on whether the time override comes from a user override, a group override, or both.
+        const label = student.timeoverrideflaglabel || this.userTimeOverrideFlagLabel;
+        flag.setAttribute('title', label);
+        flag.setAttribute('aria-label', label);
     }
 
     /**

@@ -15,11 +15,15 @@
         "noteseditlabel": "Edit note",
         "unblocklabel": "Unblock",
         "blockedflaglabel": "Blocked",
+        "showattemptslabel": "Show attempts",
+        "showlogslabel": "Show logs",
         "noteflaglabel": "This student has a note",
         "actionsmenulabel": "Actions",
         "canextend": true,
         "onesessionactive": false,
         "canunblock": false,
+        "canviewattempts": true,
+        "canviewlogs": true,
         "quizname": "Midterm quiz",
         "liveindicator": "Live",
         "updatedattext": "Last updated: 12:00",
@@ -34,9 +38,11 @@
             "completed": {"label": "Completed", "count": 1, "percent": 25, "statusclass": "border-success"}
         },
         "filter": {
-            "chipsgrouplabel": "Filter students",
+            "filterslabel": "Filters",
             "searchplaceholder": "Search students",
-            "clearlabel": "Clear filters",
+            "resetalllabel": "Reset all filters",
+            "namelabel": "Name",
+            "statuslabel": "Status",
             "chips": []
         },
         "filterempty": "No students match the current filters.",
@@ -90,12 +96,26 @@
         "actionscolumnlabel": "Actions",
         "sortascending": "Ascending",
         "sortdescending": "Descending",
+        "columns": [
+            {"id": "status", "label": "Status", "locked": true, "showcolumn": true},
+            {"id": "student", "label": "Student", "locked": false, "showcolumn": true,
+            "hidelabel": "Hide Student column", "showlabel": "Show Student column"},
+            {"id": "email", "label": "Email", "locked": false, "showcolumn": true,
+            "hidelabel": "Hide Email column", "showlabel": "Show Email column"},
+            {"id": "progress", "label": "Progress", "locked": false, "showcolumn": true,
+            "hidelabel": "Hide Progress column", "showlabel": "Show Progress column"},
+            {"id": "timeremaining", "label": "Time remaining", "locked": false, "showcolumn": true,
+            "hidelabel": "Hide Time remaining column", "showlabel": "Show Time remaining column"},
+            {"id": "actions", "label": "Actions", "locked": true, "showcolumn": true}
+        ],
+        "hiddencolumnsjson": "[]",
         "students": []
     }
 }}
 <div class="livequizmonitor-root" data-region="live-quiz-monitor"
      data-cmid="{{cmid}}"
      data-groupid="{{groupid}}"
+     data-courseid="{{courseid}}"
      data-show-email="{{#showemailcolumn}}1{{/showemailcolumn}}{{^showemailcolumn}}0{{/showemailcolumn}}"
      data-show-actions="{{#showactionscolumn}}1{{/showactionscolumn}}{{^showactionscolumn}}0{{/showactionscolumn}}"
      data-lastupdated-prefix="{{lastupdatedprefix}}"
@@ -106,11 +126,19 @@
      data-notes-edit-label="{{noteseditlabel}}"
      data-unblock-label="{{unblocklabel}}"
      data-blocked-flag-label="{{blockedflaglabel}}"
+     data-show-attempts-label="{{showattemptslabel}}"
+     data-show-logs-label="{{showlogslabel}}"
+     data-useroverride-flag-label="{{useroverrideflaglabel}}"
+     data-usertimeoverride-flag-label="{{usertimeoverrideflaglabel}}"
+     data-groupoverride-flag-label="{{groupoverrideflaglabel}}"
      data-note-flag-label="{{noteflaglabel}}"
      data-actions-menu-label="{{actionsmenulabel}}"
      data-canextend="{{#canextend}}1{{/canextend}}{{^canextend}}0{{/canextend}}"
      data-onesession-active="{{#onesessionactive}}1{{/onesessionactive}}{{^onesessionactive}}0{{/onesessionactive}}"
-     data-canunblock="{{#canunblock}}1{{/canunblock}}{{^canunblock}}0{{/canunblock}}">
+     data-canunblock="{{#canunblock}}1{{/canunblock}}{{^canunblock}}0{{/canunblock}}"
+     data-canviewattempts="{{#canviewattempts}}1{{/canviewattempts}}{{^canviewattempts}}0{{/canviewattempts}}"
+     data-canviewlogs="{{#canviewlogs}}1{{/canviewlogs}}{{^canviewlogs}}0{{/canviewlogs}}"
+     data-hidden-columns="{{hiddencolumnsjson}}">
 
     <div class="livequizmonitor-header d-flex flex-wrap align-items-center justify-content-between mb-3">
         <div>
