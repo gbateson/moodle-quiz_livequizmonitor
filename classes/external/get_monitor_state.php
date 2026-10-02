@@ -75,8 +75,7 @@ class get_monitor_state extends external_api {
             'sortdirection' => $sortdirection,
         ]);
 
-        $cm = get_coursemodule_from_id('quiz', $params['cmid'], 0, false, MUST_EXIST);
-        $course = get_course($cm->course);
+        [$course, $cm] = get_course_and_cm_from_cmid($params['cmid'], 'quiz');
         $quiz = $DB->get_record('quiz', ['id' => $cm->instance], '*', MUST_EXIST);
         $context = context_module::instance($cm->id);
 
@@ -122,6 +121,8 @@ class get_monitor_state extends external_api {
         $student = new external_single_structure([
             'userid' => new external_value(PARAM_INT, 'User id'),
             'fullname' => new external_value(PARAM_TEXT, 'Full name'),
+            'firstinitial' => new external_value(PARAM_TEXT, 'Initial of first name'),
+            'lastinitial' => new external_value(PARAM_TEXT, 'Initial of last name'),
             'email' => new external_value(PARAM_TEXT, 'Email'),
             'showemail' => new external_value(PARAM_BOOL, 'Show email'),
             'status' => new external_value(PARAM_ALPHA, 'Status'),
@@ -140,13 +141,19 @@ class get_monitor_state extends external_api {
             'attemptendat' => new external_value(PARAM_INT, 'Attempt deadline timestamp', VALUE_OPTIONAL),
             'canextend' => new external_value(PARAM_BOOL, 'Viewer may extend time'),
             'hasnote' => new external_value(PARAM_BOOL, 'Student has a saved note'),
+            'hasuseroverride' => new external_value(PARAM_BOOL, 'Student has a user override'),
+            'hasusertimeoverride' => new external_value(PARAM_BOOL, 'Student has a time-related user override'),
+            'hasgroupoverride' => new external_value(PARAM_BOOL, 'Student belongs to a group with an override'),
+            'hasgrouptimeoverride' => new external_value(PARAM_BOOL, 'Student belongs to a group with a time-related override'),
+            'hastimeoverride' => new external_value(PARAM_BOOL, 'Student has a time-related override, either user or group'),
+            'timeoverrideflaglabel' => new external_value(PARAM_TEXT, 'Tooltip for the time override badge'),
             'isblocked' => new external_value(PARAM_BOOL, 'Student blocked by onesession'),
             'unblockactionenabled' => new external_value(PARAM_BOOL, 'Unblock action enabled for viewer'),
         ]);
 
         return new external_single_structure([
-            'quizid' => new external_value(PARAM_INT, 'Quiz id'),
             'cmid' => new external_value(PARAM_INT, 'CM id'),
+            'quizid' => new external_value(PARAM_INT, 'Quiz id'),
             'quizname' => new external_value(PARAM_TEXT, 'Quiz name'),
             'quizpassword' => new external_value(PARAM_RAW, 'Quiz password'),
             'updatedat' => new external_value(PARAM_INT, 'Updated timestamp'),
@@ -157,6 +164,11 @@ class get_monitor_state extends external_api {
             'idlecount' => new external_value(PARAM_INT, 'Idle student count'),
             'onesessionactive' => new external_value(PARAM_BOOL, 'Onesession rule active for quiz'),
             'canunblock' => new external_value(PARAM_BOOL, 'Viewer may unblock attempts'),
+            'canviewattempts' => new external_value(PARAM_BOOL, 'Viewer may view student attempts'),
+            'canviewlogs' => new external_value(PARAM_BOOL, 'Viewer may view student logs'),
+            'canviewoverrides' => new external_value(PARAM_BOOL, 'Viewer may see override information'),
+            'useroverridecount' => new external_value(PARAM_INT, 'Students with a user override'),
+            'groupoverridecount' => new external_value(PARAM_INT, 'Students with a (relevant) group override'),
             'summary' => new external_single_structure([
                 'notstarted' => $statuscount,
                 'idle' => $statuscount,
@@ -181,6 +193,8 @@ class get_monitor_state extends external_api {
             $entry = [
                 'userid' => $row->userid,
                 'fullname' => $row->fullname,
+                'firstinitial' => $row->firstinitial,
+                'lastinitial' => $row->lastinitial,
                 'email' => $row->email,
                 'showemail' => (bool) $row->showemail,
                 'status' => $row->status,
@@ -196,6 +210,12 @@ class get_monitor_state extends external_api {
                 'searchtext' => $row->searchtext,
                 'canextend' => (bool) $row->canextend,
                 'hasnote' => (bool) ($row->hasnote ?? false),
+                'hasuseroverride' => (bool) ($row->hasuseroverride ?? false),
+                'hasusertimeoverride' => (bool) ($row->hasusertimeoverride ?? false),
+                'hasgroupoverride' => (bool) ($row->hasgroupoverride ?? false),
+                'hasgrouptimeoverride' => (bool) ($row->hasgrouptimeoverride ?? false),
+                'hastimeoverride' => (bool) ($row->hastimeoverride ?? false),
+                'timeoverrideflaglabel' => (string) ($row->timeoverrideflaglabel ?? ''),
                 'isblocked' => (bool) ($row->isblocked ?? false),
                 'unblockactionenabled' => (bool) ($row->unblockactionenabled ?? false),
             ];
@@ -213,8 +233,8 @@ class get_monitor_state extends external_api {
 
         $summary = $state->summary;
         return [
-            'quizid' => $state->quizid,
             'cmid' => $state->cmid,
+            'quizid' => $state->quizid,
             'quizname' => $state->quizname,
             'quizpassword' => $state->quizpassword,
             'updatedat' => $state->updatedat,
@@ -225,6 +245,11 @@ class get_monitor_state extends external_api {
             'idlecount' => (int) ($state->idlecount ?? $summary->idle->count),
             'onesessionactive' => (bool) ($state->onesessionactive ?? false),
             'canunblock' => (bool) ($state->canunblock ?? false),
+            'canviewattempts' => (bool) ($state->canviewattempts ?? false),
+            'canviewlogs' => (bool) ($state->canviewlogs ?? false),
+            'canviewoverrides' => (bool) ($state->canviewoverrides ?? false),
+            'useroverridecount' => (int) ($state->useroverridecount ?? 0),
+            'groupoverridecount' => (int) ($state->groupoverridecount ?? 0),
             'summary' => [
                 'notstarted' => (array) $summary->notstarted,
                 'idle' => (array) $summary->idle,
