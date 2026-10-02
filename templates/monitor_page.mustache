@@ -37,9 +37,11 @@
             "completed": {"label": "Completed", "count": 1, "percent": 25, "statusclass": "border-success"}
         },
         "filter": {
-            "chipsgrouplabel": "Filter students",
+            "filterslabel": "Filters",
             "searchplaceholder": "Search students",
-            "clearlabel": "Clear filters",
+            "resetalllabel": "Reset all filters",
+            "namelabel": "Name",
+            "statuslabel": "Status",
             "chips": []
         },
         "filterempty": "No students match the current filters.",
@@ -93,6 +95,19 @@
         "actionscolumnlabel": "Actions",
         "sortascending": "Ascending",
         "sortdescending": "Descending",
+        "columns": [
+            {"id": "status", "label": "Status", "locked": true, "showcolumn": true},
+            {"id": "student", "label": "Student", "locked": false, "showcolumn": true,
+            "hidelabel": "Hide Student column", "showlabel": "Show Student column"},
+            {"id": "email", "label": "Email", "locked": false, "showcolumn": true,
+            "hidelabel": "Hide Email column", "showlabel": "Show Email column"},
+            {"id": "progress", "label": "Progress", "locked": false, "showcolumn": true,
+            "hidelabel": "Hide Progress column", "showlabel": "Show Progress column"},
+            {"id": "timeremaining", "label": "Time remaining", "locked": false, "showcolumn": true,
+            "hidelabel": "Hide Time remaining column", "showlabel": "Show Time remaining column"},
+            {"id": "actions", "label": "Actions", "locked": true, "showcolumn": true}
+        ],
+        "hiddencolumnsjson": "[]",
         "students": []
     }
 }}
@@ -110,16 +125,18 @@
      data-notes-edit-label="{{noteseditlabel}}"
      data-unblock-label="{{unblocklabel}}"
      data-blocked-flag-label="{{blockedflaglabel}}"
-     data-useroverride-flag-label="{{useroverrideflaglabel}}"
-     data-usertimeoverride-flag-label="{{usertimeoverrideflaglabel}}"
      data-show-attempts-label="{{showattemptslabel}}"
      data-show-logs-label="{{showlogslabel}}"
+     data-useroverride-flag-label="{{useroverrideflaglabel}}"
+     data-usertimeoverride-flag-label="{{usertimeoverrideflaglabel}}"
+     data-groupoverride-flag-label="{{groupoverrideflaglabel}}"
      data-actions-menu-label="{{actionsmenulabel}}"
      data-canextend="{{#canextend}}1{{/canextend}}{{^canextend}}0{{/canextend}}"
      data-onesession-active="{{#onesessionactive}}1{{/onesessionactive}}{{^onesessionactive}}0{{/onesessionactive}}"
      data-canunblock="{{#canunblock}}1{{/canunblock}}{{^canunblock}}0{{/canunblock}}"
      data-canviewattempts="{{#canviewattempts}}1{{/canviewattempts}}{{^canviewattempts}}0{{/canviewattempts}}"
-     data-canviewlogs="{{#canviewlogs}}1{{/canviewlogs}}{{^canviewlogs}}0{{/canviewlogs}}">
+     data-canviewlogs="{{#canviewlogs}}1{{/canviewlogs}}{{^canviewlogs}}0{{/canviewlogs}}"
+     data-hidden-columns="{{hiddencolumnsjson}}">
 
     <div class="livequizmonitor-header d-flex flex-wrap align-items-center justify-content-between mb-3">
         <div>

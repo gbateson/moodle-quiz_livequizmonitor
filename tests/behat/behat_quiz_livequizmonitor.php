@@ -366,4 +366,54 @@ class behat_quiz_livequizmonitor extends behat_base {
             'attempts' => 5,
         ]);
     }
+
+    /**
+     * Create a group override with an extended time limit.
+     *
+     * @Given /^group "(?P<groupname>[^"]*)" has a time limit override on quiz "(?P<quizname>[^"]*)"$/
+     * @param string $groupname Group name (idnumber).
+     * @param string $quizname Quiz activity name.
+     */
+    public function group_has_a_time_limit_override_on_quiz(string $groupname, string $quizname): void {
+        global $DB;
+
+        $group = $DB->get_record('groups', ['name' => $groupname], 'id', MUST_EXIST);
+        $quiz = $DB->get_record('quiz', ['name' => $quizname], 'id', MUST_EXIST);
+
+        $DB->insert_record('quiz_overrides', (object) [
+            'quiz' => $quiz->id,
+            'groupid' => $group->id,
+            'timelimit' => 3600,
+        ]);
+    }
+
+    /**
+     * Add a user to a group, triggering the group_member_added event.
+     *
+     * @Given /^user "([^"]*)" is added to group "([^"]*)"$/
+     *
+     * @param string $username Username of the user to add to the group.
+     * @param string $groupname Name of the group to add the user to.
+     */
+    public function user_is_added_to_group($username, $groupname) {
+        global $DB;
+        $userid = $DB->get_field('user', 'id', ['username' => $username], MUST_EXIST);
+        $groupid = $DB->get_field('groups', 'id', ['name' => $groupname], MUST_EXIST);
+        groups_add_member($groupid, $userid);
+    }
+
+    /**
+     * Remove a user from a group, triggering the group_member_removed event.
+     *
+     * @Given /^user "([^"]*)" is removed from group "([^"]*)"$/
+     *
+     * @param string $username Username of the user to remove from the group.
+     * @param string $groupname Name of the group to remove the user from.
+     */
+    public function user_is_removed_from_group($username, $groupname) {
+        global $DB;
+        $userid = $DB->get_field('user', 'id', ['username' => $username], MUST_EXIST);
+        $groupid = $DB->get_field('groups', 'id', ['name' => $groupname], MUST_EXIST);
+        groups_remove_member($groupid, $userid);
+    }
 }
