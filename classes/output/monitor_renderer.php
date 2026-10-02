@@ -25,6 +25,7 @@
 namespace quiz_livequizmonitor\output;
 
 use plugin_renderer_base;
+use quiz_livequizmonitor\local\column_helper;
 use quiz_livequizmonitor\local\manager\monitor_manager;
 use stdClass;
 
@@ -32,6 +33,14 @@ use stdClass;
  * Output renderer for monitor page templates.
  */
 class monitor_renderer extends plugin_renderer_base {
+    /**
+     * Column ids that support click-to-sort. Locked structural columns
+     * (currently just 'actions') are never sortable.
+     *
+     * @var string[]
+     */
+    protected const SORTABLE_COLUMNS = ['status', 'student', 'email', 'progress', 'timeremaining'];
+
     /**
      * Prepare template context from monitor state.
      *
@@ -47,75 +56,39 @@ class monitor_renderer extends plugin_renderer_base {
         $idlecount = (int) ($state->idlecount ?? $state->summary->idle->count);
         $onesessionactive = !empty($state->onesessionactive);
         $canunblock = !empty($state->canunblock);
-
-        // Define labels for sortable table headers.
-        $headers = [
-            'status' => get_string('table:status', 'quiz_livequizmonitor'),
-            'student' => get_string('table:student', 'quiz_livequizmonitor'),
-            'email' => get_string('table:email', 'quiz_livequizmonitor'),
-            'progress' => get_string('table:progress', 'quiz_livequizmonitor'),
-            'timeremaining' => get_string('table:timeremaining', 'quiz_livequizmonitor'),
-        ];
+        $canviewattempts = !empty($state->canviewattempts);
+        $canviewlogs = !empty($state->canviewlogs);
 
         // If the first student does not have an email address, hide the email column.
-        if (empty($state->students) || empty($state->students[0]->showemail)) {
-            unset($headers['email']);
-            $showemailcolumn = false;
-        } else {
-            $showemailcolumn = true;
-        }
-
-        $tableheaders = [];
-
-        foreach ($headers as $header => $label) {
-            $sortcolumn = $header === 'student' ? 'fullname' : $header;
-            $active = $sortcolumn === $state->sortcolumn;
-
-            if ($active && $state->sortdirection === 'desc') {
-                $sortlabel = get_string('desc');
-                $sorticon = 'fa-arrow-down-short-wide';
-            } else {
-                $sortlabel = get_string('asc');
-                $sorticon = 'fa-arrow-up-short-wide';
-            }
-            $sortbylabel = get_string('sortby', 'quiz_livequizmonitor', $label);
-
-            if ($active) {
-                $sortclass = 'text-primary';
-            } else {
-                $sortclass = 'text-secondary';
-                $sortlabel = $sortbylabel;
-            }
-
-            $tableheaders[] = [
-                'label' => $label,
-                'sortcolumn' => $sortcolumn,
-                'active' => $active,
-                'sorticon' => $sorticon,
-                'sortlabel' => $sortlabel,
-                'sortclass' => $sortclass,
-                'sortbylabel' => $sortbylabel,
-            ];
-        }
+        $showemailcolumn = !empty($state->students) && !empty($state->students[0]->showemail);
 
         $students = [];
         foreach ($state->students as $row) {
             $student = (array) $row;
+            $student['cmid'] = $state->cmid;
+            $student['courseid'] = $state->courseid;
             $student['extendactionenabled'] = $canextend && in_array($row->status, monitor_manager::INPROGRESS_OR_IDLE, true);
             $student['canextend'] = $canextend;
             $student['onesessionactive'] = $onesessionactive;
             $student['canunblock'] = $canunblock;
+            $student['canviewattempts'] = $canviewattempts;
+            $student['canviewlogs'] = $canviewlogs;
             $student['notelabel'] = !empty($row->hasnote)
                 ? get_string('notes:editlabel', 'quiz_livequizmonitor')
                 : get_string('notes:addlabel', 'quiz_livequizmonitor');
+            // Perhaps these label don't need to be passed with every student?
             $student['extendrowlabel'] = get_string('extend:rowaction', 'quiz_livequizmonitor');
             $student['unblocklabel'] = get_string('onesession:unblocklabel', 'quiz_livequizmonitor');
             $student['blockedflaglabel'] = get_string('onesession:blockedflag', 'quiz_livequizmonitor');
+            $student['showattemptslabel'] = get_string('attempts:showlabel', 'quiz_livequizmonitor');
+            $student['showlogslabel'] = get_string('logs:showlabel', 'quiz_livequizmonitor');
+            $student['useroverrideflaglabel'] = get_string('filter:useroverrideflag', 'quiz_livequizmonitor');
+            $student['usertimeoverrideflaglabel'] = get_string('filter:usertimeoverrideflag', 'quiz_livequizmonitor');
+            $student['groupoverrideflaglabel'] = get_string('filter:groupoverrideflag', 'quiz_livequizmonitor');
             $students[] = $student;
         }
 
         return [
-            'cmid' => $state->cmid,
             'quizname' => $state->quizname,
             'quizpassword' => $state->quizpassword,
             'totalstudents' => $state->totalstudents,
@@ -127,11 +100,15 @@ class monitor_renderer extends plugin_renderer_base {
             'staleindicator' => get_string('staleindicator', 'quiz_livequizmonitor'),
             'emptycohort' => get_string('emptycohort', 'quiz_livequizmonitor'),
             'groupid' => $groupid,
+            'cmid' => $state->cmid,
+            'courseid' => $state->courseid,
             'summary' => (array) $state->summary,
             'students' => $students,
             'canextend' => $canextend,
             'onesessionactive' => $onesessionactive,
             'canunblock' => $canunblock,
+            'canviewattempts' => $canviewattempts,
+            'canviewlogs' => $canviewlogs,
             'inprogresscount' => $inprogresscount,
             'idlecount' => $idlecount,
             'showpasswordlabel' => get_string('showpassword:label', 'quiz_livequizmonitor'),
@@ -142,15 +119,99 @@ class monitor_renderer extends plugin_renderer_base {
             'noteseditlabel' => get_string('notes:editlabel', 'quiz_livequizmonitor'),
             'unblocklabel' => get_string('onesession:unblocklabel', 'quiz_livequizmonitor'),
             'blockedflaglabel' => get_string('onesession:blockedflag', 'quiz_livequizmonitor'),
+            'showattemptslabel' => get_string('attempts:showlabel', 'quiz_livequizmonitor'),
+            'showlogslabel' => get_string('logs:showlabel', 'quiz_livequizmonitor'),
+            'useroverrideflaglabel' => get_string('filter:useroverrideflag', 'quiz_livequizmonitor'),
+            'usertimeoverrideflaglabel' => get_string('filter:usertimeoverrideflag', 'quiz_livequizmonitor'),
+            'groupoverrideflaglabel' => get_string('filter:groupoverrideflag', 'quiz_livequizmonitor'),
             'actionsmenulabel' => get_string('actions'),
-            'tableheaders' => $tableheaders,
+            'columns' => $this->export_columns($state, $showemailcolumn),
+            'hiddencolumnsjson' => json_encode(column_helper::get_hidden_columns()),
             'showemailcolumn' => $showemailcolumn,
-            'showactionscolumn' => true, // Always show Actions column.
-            'actionscolumnlabel' => get_string('table:actions', 'quiz_livequizmonitor'),
+            'showactionscolumn' => true, // Actions column is always present.
             'filter' => $this->export_filter_context($state, $groupmenu),
             'filterempty' => get_string('filter:empty', 'quiz_livequizmonitor'),
             'sortascending' => get_string('asc'),
             'sortdescending' => get_string('desc'),
+        ];
+    }
+
+    /**
+     * Build the ordered, generic column list the header template loops over.
+     *
+     * Each entry carries its lock state and hide/show labels for the toggle button,
+     * plus sort metadata for the columns that support click-to-sort.
+     *
+     * @param stdClass $state Monitor state from monitor_manager.
+     * @param bool $showemailcolumn Whether the email column currently applies.
+     * @return array List of column context entries, in registry order.
+     */
+    protected function export_columns(stdClass $state, bool $showemailcolumn): array {
+        // Columns whose presence (not visibility) depends on something other than the registry.
+        $showflags = [
+            'email' => $showemailcolumn,
+        ];
+
+        $columns = [];
+        foreach (column_helper::get_columns() as $columnid => $column) {
+            $label = get_string($column['langkey'], 'quiz_livequizmonitor');
+
+            $entry = [
+                'id' => $columnid,
+                'label' => $label,
+                'locked' => !empty($column['locked']),
+                'showcolumn' => $showflags[$columnid] ?? true,
+                'hidelabel' => get_string('columns:hidecolumn', 'quiz_livequizmonitor', $label),
+                'showlabel' => get_string('columns:showcolumn', 'quiz_livequizmonitor', $label),
+                'sortable' => in_array($columnid, self::SORTABLE_COLUMNS, true),
+            ];
+
+            if ($entry['sortable']) {
+                $entry += $this->export_sort_metadata($state, $columnid, $label);
+            }
+
+            $columns[] = $entry;
+        }
+
+        return $columns;
+    }
+
+    /**
+     * Build the sort-related context entries for one sortable column.
+     *
+     * @param stdClass $state Monitor state from monitor_manager.
+     * @param string $columnid Column id (as used in the column registry).
+     * @param string $label Column header label.
+     * @return array Sort context: sortcolumn, active, sorticon, sortlabel, sortclass, sortbylabel.
+     */
+    protected function export_sort_metadata(stdClass $state, string $columnid, string $label): array {
+        // The 'student' column sorts on fullname, not its own column id.
+        $sortcolumn = $columnid === 'student' ? 'fullname' : $columnid;
+        $active = $sortcolumn === $state->sortcolumn;
+
+        if ($active && $state->sortdirection === 'desc') {
+            $sortlabel = get_string('desc');
+            $sorticon = 'fa-arrow-down-short-wide';
+        } else {
+            $sortlabel = get_string('asc');
+            $sorticon = 'fa-arrow-up-short-wide';
+        }
+        $sortbylabel = get_string('sortby', 'quiz_livequizmonitor', $label);
+
+        if ($active) {
+            $sortclass = 'text-primary';
+        } else {
+            $sortclass = 'text-secondary';
+            $sortlabel = $sortbylabel;
+        }
+
+        return [
+            'sortcolumn' => $sortcolumn,
+            'active' => $active,
+            'sorticon' => $sorticon,
+            'sortlabel' => $sortlabel,
+            'sortclass' => $sortclass,
+            'sortbylabel' => $sortbylabel,
         ];
     }
 
@@ -165,9 +226,12 @@ class monitor_renderer extends plugin_renderer_base {
         $summary = $state->summary;
 
         return [
+            'filterslabel' => get_string('filter:filterslabel', 'quiz_livequizmonitor'),
+            'labelsep' => get_string('labelsep', 'langconfig'),
+            'resetalllabel' => get_string('filter:resetall', 'quiz_livequizmonitor'),
+            'namelabel' => get_string('filter:namelabel', 'quiz_livequizmonitor'),
             'searchplaceholder' => get_string('filter:searchplaceholder', 'quiz_livequizmonitor'),
-            'clearlabel' => get_string('filter:clear', 'quiz_livequizmonitor'),
-            'chipsgrouplabel' => get_string('filter:toolbarlabel', 'quiz_livequizmonitor'),
+            'statuslabel' => get_string('filter:statuslabel', 'quiz_livequizmonitor'),
             'groupmenu' => $groupmenu,
             'chips' => [
                 [
@@ -201,6 +265,14 @@ class monitor_renderer extends plugin_renderer_base {
                     'active' => false,
                 ],
             ],
+            'canviewoverrides' => !empty($state->canviewoverrides),
+            'overridesgrouplabel' => get_string('filter:overridesgrouplabel', 'quiz_livequizmonitor'),
+            'useroverridelabel' => get_string('filter:useroverride', 'quiz_livequizmonitor'),
+            'useroverridecount' => $state->useroverridecount ?? 0,
+            'useroverrideactive' => false,
+            'groupoverridelabel' => get_string('filter:groupoverride', 'quiz_livequizmonitor'),
+            'groupoverridecount' => $state->groupoverridecount ?? 0,
+            'groupoverrideactive' => false,
         ];
     }
 }
