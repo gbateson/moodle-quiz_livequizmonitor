@@ -23,6 +23,7 @@
         "actionsmenulabel": "Actions",
         "notelabel": "Add note",
         "hasnote": false,
+        "noteflaglabel": "This student has a note",
         "hasuseroverride": false,
         "useroverrideflaglabel": "This student has a user override",
         "hasgroupoverride": false,
@@ -49,8 +50,13 @@
         <span class="badge {{statusclass}}">{{statuslabel}}</span>
     </td>
     <td data-column="student" data-field="fullname">
-        <span data-colcontent="student">
+        <span class="livequizmonitor-student-name" data-colcontent="student">
             {{fullname}}
+            {{#hasnote}}
+            <i class="fa-solid fa-book livequizmonitor-note-flag"
+               title="{{noteflaglabel}}"
+               aria-label="{{noteflaglabel}}"></i>
+            {{/hasnote}}
             {{#hasuseroverride}}
             <i class="fa-solid fa-user-gear livequizmonitor-override-flag" data-override-badge="user"
                title="{{useroverrideflaglabel}}"
