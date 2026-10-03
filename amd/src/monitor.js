@@ -353,7 +353,7 @@ class MonitorComponent extends BaseComponent {
         }
 
         // Invalidate any poll already in flight, so its older data can't undo this change.
-        this.localgeneration = (this.localgeneration ?? 0) + 1;
+        this.localgeneration += 1;
 
         // Update the reactive state; the students.hasnote:updated watcher re-renders the flag and label.
         this.reactive.dispatch('setStudentNote', {userid, hasnote: !!response.hasnote});
@@ -683,7 +683,7 @@ class MonitorComponent extends BaseComponent {
         }
 
         this.pollInFlight = true;
-        const generation = this.localgeneration ?? 0;
+        const generation = this.localgeneration;
         try {
             const state = this.getState();
 
@@ -699,7 +699,7 @@ class MonitorComponent extends BaseComponent {
 
             // Discard a response requested before a local change, as it would undo that change.
             // The finally block still runs, so any queued forced poll fetches fresh data straight away.
-            if (generation !== (this.localgeneration ?? 0)) {
+            if (generation !== this.localgeneration) {
                 return;
             }
 
