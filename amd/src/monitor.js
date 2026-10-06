@@ -1492,12 +1492,14 @@ class MonitorComponent extends BaseComponent {
     }
 
     /**
-     * Show or hide the override badge beside the student's name.
+     * Sync the override badges beside the student's name.
      *
-     * A student can have a user override or a (relevant) group override,
-     * never both - monitor_manager suppresses hasgroupoverride whenever
-     * hasuseroverride is true, since a user override always takes
-     * precedence in core. So this picks at most one icon to show.
+     * Override precedence is resolved per setting, so a student can have
+     * both a user override and a (relevant) group override at once, e.g. a
+     * user override that sets only the close date alongside a group override
+     * that sets only the password. Each badge is therefore shown or removed
+     * on its own, and the user badge is kept ahead of the group badge to
+     * match student_row.mustache.
      *
      * @param {HTMLElement} row Table row element
      * @param {object} student Student state row
@@ -1507,36 +1509,51 @@ class MonitorComponent extends BaseComponent {
         if (!nameCell) {
             return;
         }
-
-        let type = null;
-        if (student.hasuseroverride) {
-            type = 'user';
-        } else if (student.hasgroupoverride) {
-            type = 'group';
-        }
-
-        const flag = nameCell.querySelector('.livequizmonitor-override-flag');
-        if (!type) {
+        const badges = [
+            {
+                type: 'user',
+                show: student.hasuseroverride,
+                icon: 'fa-user-gear',
+                label: this.userOverrideFlagLabel
+            },
+            {
+                type: 'group',
+                show: student.hasgroupoverride,
+                icon: 'fa-users-gear',
+                label: this.groupOverrideFlagLabel
+            },
+        ];
+        badges.forEach(({type, show, icon, label}) => {
+            const flag = nameCell.querySelector(
+                `.livequizmonitor-override-flag[data-override-badge="${type}"]`
+            );
             if (flag) {
-                flag.remove();
+                if (!show) {
+                    // Flag is not required. Remove it.
+                    flag.remove();
+                }
+                return;
             }
-            return;
-        }
-
-        if (flag && flag.dataset.overrideBadge === type) {
-            return;
-        }
-        if (flag) {
-            flag.remove();
-        }
-
-        const icon = type === 'user' ? 'fa-user-gear' : 'fa-users-gear';
-        const label = type === 'user' ? this.userOverrideFlagLabel : this.groupOverrideFlagLabel;
-        const flagTitle = this.escapeHtml(label);
-        nameCell.insertAdjacentHTML('beforeend',
-            `<i class="fa-solid ${icon} livequizmonitor-override-flag" data-override-badge="${type}" ` +
-            `title="${flagTitle}" aria-label="${flagTitle}"></i>`
-        );
+            // Flag doesn't exist. Show it if necessary.
+            if (show) {
+                const flagTitle = this.escapeHtml(label);
+                const html = `<i
+                    class="fa-solid ${icon} livequizmonitor-override-flag"
+                    data-override-badge="${type}"
+                    title="${flagTitle}"
+                    aria-label="${flagTitle}"
+                ></i>`;
+                // Keep the user badge ahead of an existing group badge.
+                const groupFlag = nameCell.querySelector(
+                    '.livequizmonitor-override-flag[data-override-badge="group"]'
+                );
+                if (type === 'user' && groupFlag) {
+                    groupFlag.insertAdjacentHTML('beforebegin', html);
+                } else {
+                    nameCell.insertAdjacentHTML('beforeend', html);
+                }
+            }
+        });
     }
 
     /**
