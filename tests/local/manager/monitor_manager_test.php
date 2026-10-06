@@ -588,6 +588,101 @@ final class monitor_manager_test extends advanced_testcase {
         $this->assertTrue($blockedrow->unblockactionenabled);
     }
 
+    public function test_get_allowed_students_unrestricted_quiz_returns_all_enrolled(): void {
+        $this->resetAfterTest();
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $quiz = $generator->create_module('quiz', ['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('quiz', $quiz->id);
+        $context = \context_module::instance($cm->id);
+
+        $student1 = $generator->create_and_enrol($course, 'student');
+        $student2 = $generator->create_and_enrol($course, 'student');
+
+        $students = monitor_manager::get_allowed_students($cm, $context, 0);
+
+        $this->assertCount(2, $students);
+        $this->assertArrayHasKey($student1->id, $students);
+        $this->assertArrayHasKey($student2->id, $students);
+    }
+
+    public function test_get_allowed_students_respects_group_restriction(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $quiz = $generator->create_module('quiz', ['course' => $course->id]);
+
+        $student1 = $generator->create_and_enrol($course, 'student');
+        $student2 = $generator->create_and_enrol($course, 'student');
+
+        // Put only student1 in the restricted group.
+        $group = $generator->create_group(['courseid' => $course->id]);
+        $generator->create_group_member(['groupid' => $group->id, 'userid' => $student1->id]);
+
+        // Restrict the quiz to members of that group.
+        $availability = json_encode((object) [
+            'op' => '&',
+            'c' => [
+                (object) [
+                    'type' => 'group',
+                    'id' => (int) $group->id,
+                ],
+            ],
+            'showc' => [false],
+        ]);
+        $DB->set_field('course_modules', 'availability', $availability, ['id' => $quiz->cmid]);
+        rebuild_course_cache($course->id, true);
+
+        $modinfo = get_fast_modinfo($course);
+        $cm = $modinfo->get_cm($quiz->cmid);
+        $context = \context_module::instance($cm->id);
+
+        $students = monitor_manager::get_allowed_students($cm, $context, 0);
+
+        $this->assertCount(1, $students);
+        $this->assertArrayHasKey($student1->id, $students);
+        $this->assertArrayNotHasKey($student2->id, $students);
+    }
+
+    public function test_get_allowed_students_includes_suspended_enrolments(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $quiz = $generator->create_module('quiz', ['course' => $course->id]);
+
+        $activestudent = $generator->create_and_enrol($course, 'student');
+
+        // Enrol a second student but with a suspended enrolment status.
+        $suspendedstudent = $generator->create_user();
+        $studentrole = $DB->get_field('role', 'id', ['shortname' => 'student']);
+        $generator->enrol_user(
+            $suspendedstudent->id,
+            $course->id,
+            $studentrole,
+            'manual',
+            0,
+            0,
+            ENROL_USER_SUSPENDED
+        );
+
+        $modinfo = get_fast_modinfo($course);
+        $cm = $modinfo->get_cm($quiz->cmid);
+        $context = \context_module::instance($cm->id);
+
+        $students = monitor_manager::get_allowed_students($cm, $context, 0);
+
+        $this->assertArrayHasKey($activestudent->id, $students);
+        $this->assertArrayHasKey(
+            $suspendedstudent->id,
+            $students,
+            'Suspended enrolments must still be visible to the invigilator (see PR #3 review).'
+        );
+    }
+
     /**
      * A fresh in-progress attempt is not idle.
      */
@@ -793,5 +888,102 @@ final class monitor_manager_test extends advanced_testcase {
         // ...but only the time-related one is flagged for the timer badge.
         $this->assertTrue($byuserid[$timeextended->id]->hasusertimeoverride);
         $this->assertFalse($byuserid[$attemptsonly->id]->hasusertimeoverride);
+    }
+
+    /**
+     * A student who belongs to an overridden group is flagged with
+     * hasgroupoverride, and hastimeoverride fires from the group override
+     * even though the student has no user override at all.
+     */
+    public function test_get_state_flags_group_overrides(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        [$quiz, $cm] = $this->create_quiz_with_question($course);
+
+        $ingroup = $generator->create_user(['firstname' => 'In', 'lastname' => 'Group']);
+        $notingroup = $generator->create_user(['firstname' => 'Not', 'lastname' => 'InGroup']);
+        $generator->enrol_user($ingroup->id, $course->id, 'student');
+        $generator->enrol_user($notingroup->id, $course->id, 'student');
+
+        $group = $generator->create_group(['courseid' => $course->id]);
+        $generator->create_group_member(['groupid' => $group->id, 'userid' => $ingroup->id]);
+
+        $DB->insert_record('quiz_overrides', (object) [
+            'quiz' => $quiz->id,
+            'groupid' => $group->id,
+            'timeclose' => time() + 3600,
+        ]);
+
+        $this->setAdminUser();
+        $state = monitor_manager::get_state($course, $cm, $quiz, 0);
+
+        $this->assertSame(1, $state->groupoverridecount);
+
+        $byuserid = [];
+        foreach ($state->students as $row) {
+            $byuserid[$row->userid] = $row;
+        }
+
+        $this->assertFalse($byuserid[$ingroup->id]->hasuseroverride);
+        $this->assertTrue($byuserid[$ingroup->id]->hasgroupoverride);
+        $this->assertTrue($byuserid[$ingroup->id]->hasgrouptimeoverride);
+        $this->assertTrue($byuserid[$ingroup->id]->hastimeoverride);
+
+        $this->assertFalse($byuserid[$notingroup->id]->hasgroupoverride);
+        $this->assertFalse($byuserid[$notingroup->id]->hastimeoverride);
+    }
+
+    /**
+     * Per the agreed precedence rule, a user override always wins: a
+     * student with both a user override AND membership in an overridden
+     * group is reported as hasuseroverride only - hasgroupoverride and
+     * groupoverridecount ignore them, since the group override does not
+     * actually apply to their attempt.
+     */
+    public function test_get_state_user_override_takes_precedence_over_group(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        [$quiz, $cm] = $this->create_quiz_with_question($course);
+
+        $student = $generator->create_user();
+        $generator->enrol_user($student->id, $course->id, 'student');
+
+        $group = $generator->create_group(['courseid' => $course->id]);
+        $generator->create_group_member(['groupid' => $group->id, 'userid' => $student->id]);
+
+        // The student has BOTH a user override and belongs to an overridden group.
+        // Both overrides are time-related, but the user override should take precedence
+        // and the group override should be ignored for this student.
+        $DB->insert_record('quiz_overrides', (object) [
+            'quiz' => $quiz->id,
+            'userid' => $student->id,
+            'timelimit' => 3600,
+        ]);
+        $DB->insert_record('quiz_overrides', (object) [
+            'quiz' => $quiz->id,
+            'groupid' => $group->id,
+            'timelimit' => 1800,
+        ]);
+
+        $this->setAdminUser();
+        $state = monitor_manager::get_state($course, $cm, $quiz, 0);
+
+        $this->assertSame(0, $state->groupoverridecount);
+
+        $row = $state->students[0];
+        $this->assertTrue($row->hastimeoverride);
+        $this->assertTrue($row->hasuseroverride);
+        $this->assertTrue($row->hasusertimeoverride);
+
+        $this->assertFalse($row->hasgroupoverride);
+        $this->assertFalse($row->hasgrouptimeoverride);
     }
 }
