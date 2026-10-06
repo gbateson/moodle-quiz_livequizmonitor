@@ -26,6 +26,11 @@ import Notification from 'core/notification';
 import Templates from 'core/templates';
 import {BaseComponent} from 'core/reactive';
 import {matchesFilters, countVisible} from 'quiz_livequizmonitor/filter_utils';
+import {
+    parseHiddenColumns,
+    applyColumnVisibility,
+    saveHiddenColumns,
+} from 'quiz_livequizmonitor/column_visibility';
 import {createMonitorReactive, formatDuration} from 'quiz_livequizmonitor/reactive/monitor_state';
 import {showPasswordModal} from 'quiz_livequizmonitor/show_password_modal';
 import {showExtendModal} from 'quiz_livequizmonitor/extend_time_modal';
@@ -77,6 +82,7 @@ class MonitorComponent extends BaseComponent {
             EMPTYCOHORT: '[data-region="empty-cohort"]',
             SUMMARYTILE: '.livequizmonitor-summary-tile',
             EXTENDBULK: '[data-action="extend-bulk"]',
+            COLUMNTOGGLE: '[data-action="toggle-column"]',
             SHOWPASSWORD: '[data-action="show-password"]',
         };
     }
@@ -123,6 +129,7 @@ class MonitorComponent extends BaseComponent {
         this.actionsMenuLabel = root.dataset.actionsMenuLabel ?? 'Actions';
         this.unblockRowLabel = root.dataset.unblockLabel ?? 'Unblock user';
         this.blockedFlagLabel = root.dataset.blockedFlagLabel ?? 'Blocked';
+        this.hiddenColumns = parseHiddenColumns(root);
         this.showAttemptsLabel = root.dataset.showAttemptsLabel ?? 'Show attempts';
         this.canviewattempts = root.dataset.canviewattempts === '1';
         this.showLogsLabel = root.dataset.showLogsLabel ?? 'Show logs';
@@ -201,11 +208,62 @@ class MonitorComponent extends BaseComponent {
         this.bindSortEvents();
         this.bindExtendEvents();
         this.bindNoteEvents();
+        this.bindColumnToggleEvents();
         this.startPolling();
         this.startTimerTick();
         this.renderCohortLayout();
         this.renderFilterToolbar();
         this.renderBulkExtendButton();
+        this.renderColumnVisibility();
+    }
+
+    /**
+     * Bind clicks on the per-column +/- hide/show toggle buttons.
+     */
+    bindColumnToggleEvents() {
+        this.addEventListener(this.element, 'click', this.handleColumnToggleClick);
+    }
+
+    /**
+     * Toggle a column's hidden state, reflect it immediately, and persist it.
+     *
+     * @param {Event} event
+     */
+    handleColumnToggleClick(event) {
+        const button = event.target.closest(this.selectors.COLUMNTOGGLE);
+        if (!button || !this.element.contains(button)) {
+            return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+
+        const column = button.dataset.column;
+        if (!column) {
+            return;
+        }
+
+        if (this.hiddenColumns.has(column)) {
+            this.hiddenColumns.delete(column);
+        } else {
+            this.hiddenColumns.add(column);
+        }
+
+        this.renderColumnVisibility();
+
+        saveHiddenColumns(this.cmid, this.hiddenColumns).catch((e) => {
+            Notification.exception(e);
+        });
+    }
+
+    /**
+     * Re-apply hidden-column state to every column-aware element in the table.
+     *
+     * Called on init, after a toggle click, and after every reactive row
+     * sync so newly inserted rows immediately respect the current
+     * preference too.
+     */
+    renderColumnVisibility() {
+        applyColumnVisibility(this.element, this.hiddenColumns);
     }
 
     /**
@@ -559,6 +617,11 @@ class MonitorComponent extends BaseComponent {
      * @param {Event} event
      */
     handleSortClick(event) {
+        // Ignore clicks on the column hide/show toggle nested in the header.
+        if (event.target.closest(this.selectors.COLUMNTOGGLE)) {
+            return;
+        }
+
         const trigger = event.target.closest('[data-action="sort-column"]');
 
         if (!trigger || !this.element.contains(trigger)) {
@@ -977,6 +1040,7 @@ class MonitorComponent extends BaseComponent {
 
             this.applyRowVisibility();
             this.renderFilterEmpty();
+            this.renderColumnVisibility();
         } finally {
             this.syncInFlight = false;
             if (this.syncQueued) {
@@ -1145,7 +1209,7 @@ class MonitorComponent extends BaseComponent {
         }
 
         const headers = table.querySelectorAll(
-            'th[data-action="sort-column"]'
+            'th[data-sort-column]'
         );
 
         headers.forEach((header) => {
@@ -1434,12 +1498,10 @@ class MonitorComponent extends BaseComponent {
     }
 
     /**
-     * Show or hide the override badge beside the student's name.
+     * Show or hide the override badges beside the student's name.
      *
-     * A student can have a user override or a (relevant) group override,
-     * never both - monitor_manager suppresses hasgroupoverride whenever
-     * hasuseroverride is true, since a user override always takes
-     * precedence in core. So this picks at most one icon to show.
+     * A student can have a user override, a group override, or both:
+     * a user override only takes precedence for the settings it actually sets.
      *
      * @param {HTMLElement} row Table row element
      * @param {object} student Student state row
@@ -1450,32 +1512,42 @@ class MonitorComponent extends BaseComponent {
             return;
         }
 
-        let type = null;
-        if (student.hasuseroverride) {
-            type = 'user';
-        } else if (student.hasgroupoverride) {
-            type = 'group';
-        }
+        this.syncOverrideBadge(
+            nameCell,
+            'user',
+            !!student.hasuseroverride,
+            'fa-user-gear',
+            this.userOverrideFlagLabel
+        );
+        this.syncOverrideBadge(
+            nameCell,
+            'group',
+            !!student.hasgroupoverride,
+            'fa-users-gear',
+            this.groupOverrideFlagLabel
+        );
+    }
 
-        const flag = nameCell.querySelector('.livequizmonitor-override-flag');
-        if (!type) {
-            if (flag) {
-                flag.remove();
-            }
-            return;
-        }
-
-        if (flag && flag.dataset.overrideBadge === type) {
+    /**
+     * Ensure a named override badge is present or absent in a cell.
+     *
+     * @param {HTMLElement} cell Parent cell
+     * @param {string} type Badge type (user|group)
+     * @param {boolean} shouldShow Whether the badge should be visible
+     * @param {string} icon Font Awesome icon class
+     * @param {string} label Accessible label
+     */
+    syncOverrideBadge(cell, type, shouldShow, icon, label) {
+        const flag = cell.querySelector(`[data-override-badge="${type}"]`);
+        if (!shouldShow) {
+            flag?.remove();
             return;
         }
         if (flag) {
-            flag.remove();
+            return;
         }
-
-        const icon = type === 'user' ? 'fa-user-gear' : 'fa-users-gear';
-        const label = type === 'user' ? this.userOverrideFlagLabel : this.groupOverrideFlagLabel;
         const flagTitle = this.escapeHtml(label);
-        nameCell.insertAdjacentHTML('beforeend',
+        cell.insertAdjacentHTML('beforeend',
             `<i class="fa-solid ${icon} livequizmonitor-override-flag" data-override-badge="${type}" ` +
             `title="${flagTitle}" aria-label="${flagTitle}"></i>`
         );
