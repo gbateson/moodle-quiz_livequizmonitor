@@ -33,14 +33,13 @@
         }
     }
 }}
-<div class="livequizmonitor-filter-toolbar bg-secondary rounded mb-3 py-2 px-1" data-region="filter-toolbar">
+<div class="livequizmonitor-filter-toolbar bg-secondary rounded mb-3 py-1 px-1" data-region="filter-toolbar">
     <div class="livequizmonitor-filter-toolbar-header">
-        <span class="livequizmonitor-filter-toolbar-title">{{filter.filterslabel}}{{filter.labelsep}}</span>
         <button type="button" class="btn btn-dark btn-sm" data-action="clear-filters">
             {{filter.resetalllabel}}
         </button>
     </div>
-    <div class="livequizmonitor-filter-groups d-flex flex-wrap mx-1" role="toolbar" aria-label="{{filter.filterslabel}}">
+    <div class="livequizmonitor-filter-groups d-flex flex-wrap align-items-center mx-1" role="toolbar" aria-label="{{filter.filterslabel}}">
         <div class="livequizmonitor-filter-group" data-filter-group="name">
             <span class="livequizmonitor-filter-group-label" id="livequizmonitor-filter-group-name-label">
                 {{filter.namelabel}}{{filter.labelsep}}
