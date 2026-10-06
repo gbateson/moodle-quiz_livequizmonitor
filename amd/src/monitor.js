@@ -1498,10 +1498,14 @@ class MonitorComponent extends BaseComponent {
     }
 
     /**
-     * Show or hide the override badges beside the student's name.
+     * Sync the override badges beside the student's name.
      *
-     * A student can have a user override, a group override, or both:
-     * a user override only takes precedence for the settings it actually sets.
+     * Override precedence is resolved per setting, so a student can have
+     * both a user override and a (relevant) group override at once, e.g. a
+     * user override that sets only the close date alongside a group override
+     * that sets only the password. Each badge is therefore shown or removed
+     * on its own, and the user badge is kept ahead of the group badge to
+     * match student_row.mustache.
      *
      * @param {HTMLElement} row Table row element
      * @param {object} student Student state row
@@ -1511,46 +1515,51 @@ class MonitorComponent extends BaseComponent {
         if (!nameCell) {
             return;
         }
-
-        this.syncOverrideBadge(
-            nameCell,
-            'user',
-            !!student.hasuseroverride,
-            'fa-user-gear',
-            this.userOverrideFlagLabel
-        );
-        this.syncOverrideBadge(
-            nameCell,
-            'group',
-            !!student.hasgroupoverride,
-            'fa-users-gear',
-            this.groupOverrideFlagLabel
-        );
-    }
-
-    /**
-     * Ensure a named override badge is present or absent in a cell.
-     *
-     * @param {HTMLElement} cell Parent cell
-     * @param {string} type Badge type (user|group)
-     * @param {boolean} shouldShow Whether the badge should be visible
-     * @param {string} icon Font Awesome icon class
-     * @param {string} label Accessible label
-     */
-    syncOverrideBadge(cell, type, shouldShow, icon, label) {
-        const flag = cell.querySelector(`[data-override-badge="${type}"]`);
-        if (!shouldShow) {
-            flag?.remove();
-            return;
-        }
-        if (flag) {
-            return;
-        }
-        const flagTitle = this.escapeHtml(label);
-        cell.insertAdjacentHTML('beforeend',
-            `<i class="fa-solid ${icon} livequizmonitor-override-flag" data-override-badge="${type}" ` +
-            `title="${flagTitle}" aria-label="${flagTitle}"></i>`
-        );
+        const badges = [
+            {
+                type: 'user',
+                show: student.hasuseroverride,
+                icon: 'fa-user-gear',
+                label: this.userOverrideFlagLabel
+            },
+            {
+                type: 'group',
+                show: student.hasgroupoverride,
+                icon: 'fa-users-gear',
+                label: this.groupOverrideFlagLabel
+            },
+        ];
+        badges.forEach(({type, show, icon, label}) => {
+            const flag = nameCell.querySelector(
+                `.livequizmonitor-override-flag[data-override-badge="${type}"]`
+            );
+            if (flag) {
+                if (!show) {
+                    // Flag is not required. Remove it.
+                    flag.remove();
+                }
+                return;
+            }
+            // Flag doesn't exist. Show it if necessary.
+            if (show) {
+                const flagTitle = this.escapeHtml(label);
+                const html = `<i
+                    class="fa-solid ${icon} livequizmonitor-override-flag"
+                    data-override-badge="${type}"
+                    title="${flagTitle}"
+                    aria-label="${flagTitle}"
+                ></i>`;
+                // Keep the user badge ahead of an existing group badge.
+                const groupFlag = nameCell.querySelector(
+                    '.livequizmonitor-override-flag[data-override-badge="group"]'
+                );
+                if (type === 'user' && groupFlag) {
+                    groupFlag.insertAdjacentHTML('beforebegin', html);
+                } else {
+                    nameCell.insertAdjacentHTML('beforeend', html);
+                }
+            }
+        });
     }
 
     /**
