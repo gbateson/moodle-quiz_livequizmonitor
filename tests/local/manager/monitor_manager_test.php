@@ -825,6 +825,7 @@ final class monitor_manager_test extends advanced_testcase {
         $this->setUser($extended);
         $studentview = monitor_manager::get_state($course, $cm, $quiz, 0);
         $this->assertFalse($studentview->canviewoverrides);
+        $this->assertSame(0, $studentview->nooverridecount);
         $this->assertSame(0, $studentview->useroverridecount);
         foreach ($studentview->students as $row) {
             $this->assertFalse($row->hasuseroverride);
@@ -834,6 +835,7 @@ final class monitor_manager_test extends advanced_testcase {
         $this->setAdminUser();
         $state = monitor_manager::get_state($course, $cm, $quiz, 0);
         $this->assertTrue($state->canviewoverrides);
+        $this->assertSame(1, $state->nooverridecount);
         $this->assertSame(1, $state->useroverridecount);
 
         $byuserid = [];
@@ -921,6 +923,7 @@ final class monitor_manager_test extends advanced_testcase {
         $this->setAdminUser();
         $state = monitor_manager::get_state($course, $cm, $quiz, 0);
 
+        $this->assertSame(1, $state->nooverridecount);
         $this->assertSame(1, $state->groupoverridecount);
 
         $byuserid = [];
@@ -976,6 +979,7 @@ final class monitor_manager_test extends advanced_testcase {
         $this->setAdminUser();
         $state = monitor_manager::get_state($course, $cm, $quiz, 0);
 
+        $this->assertSame(0, $state->nooverridecount);
         $this->assertSame(0, $state->groupoverridecount);
 
         $row = $state->students[0];

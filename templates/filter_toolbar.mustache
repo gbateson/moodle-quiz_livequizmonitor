@@ -25,10 +25,16 @@
             ],
             "canviewoverrides": true,
             "overridesgrouplabel": "Overrides",
-            "useroverridelabel": "Has extension",
+            "nooverridelabel": "None",
+            "nooverridecount": 1,
+            "nooverrideactive": false,
+            "alloverridelabel": "All",
+            "alloverridecount": 3,
+            "alloverrideactive": true,
+            "useroverridelabel": "User",
             "useroverridecount": 1,
             "useroverrideactive": false,
-            "groupoverridelabel": "With group override",
+            "groupoverridelabel": "Group",
             "groupoverridecount": 1,
             "groupoverrideactive": false
         }
@@ -93,6 +99,20 @@
                         data-flag="groupoverride"
                         aria-pressed="{{#filter.groupoverrideactive}}true{{/filter.groupoverrideactive}}{{^filter.groupoverrideactive}}false{{/filter.groupoverrideactive}}">
                     {{filter.groupoverridelabel}} (<span data-filter-count="groupoverride">{{filter.groupoverridecount}}</span>)
+                </button>
+                <button type="button"
+                        class="btn{{#filter.nooverrideactive}} btn-primary{{/filter.nooverrideactive}}{{^filter.nooverrideactive}} btn-outline-secondary{{/filter.nooverrideactive}}"
+                        data-action="filter-flag"
+                        data-flag="nooverride"
+                        aria-pressed="{{#filter.nooverrideactive}}true{{/filter.nooverrideactive}}{{^filter.nooverrideactive}}false{{/filter.nooverrideactive}}">
+                    {{filter.nooverridelabel}} (<span data-filter-count="nooverride">{{filter.nooverridecount}}</span>)
+                </button>
+                <button type="button"
+                        class="btn{{#filter.alloverrideactive}} btn-primary{{/filter.alloverrideactive}}{{^filter.alloverrideactive}} btn-outline-secondary{{/filter.alloverrideactive}}"
+                        data-action="filter-flag"
+                        data-flag="alloverride"
+                        aria-pressed="{{#filter.alloverrideactive}}true{{/filter.alloverrideactive}}{{^filter.alloverrideactive}}false{{/filter.alloverrideactive}}">
+                    {{filter.alloverridelabel}} (<span data-filter-count="alloverride">{{filter.alloverridecount}}</span>)
                 </button>
             </div>
         </div>

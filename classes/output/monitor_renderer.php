@@ -269,12 +269,19 @@ class monitor_renderer extends plugin_renderer_base {
             ],
             'canviewoverrides' => !empty($state->canviewoverrides),
             'overridesgrouplabel' => get_string('filter:overridesgrouplabel', 'quiz_livequizmonitor'),
+            'nooverridelabel' => get_string('filter:nooverride', 'quiz_livequizmonitor'),
+            'nooverridecount' => $state->nooverridecount ?? 0,
+            'nooverrideactive' => false,
             'useroverridelabel' => get_string('filter:useroverride', 'quiz_livequizmonitor'),
             'useroverridecount' => $state->useroverridecount ?? 0,
             'useroverrideactive' => false,
             'groupoverridelabel' => get_string('filter:groupoverride', 'quiz_livequizmonitor'),
             'groupoverridecount' => $state->groupoverridecount ?? 0,
             'groupoverrideactive' => false,
+            // No override filter is active by default, so "All" starts selected.
+            'alloverridelabel' => get_string('filter:all', 'quiz_livequizmonitor'),
+            'alloverridecount' => $state->totalstudents,
+            'alloverrideactive' => true,
         ];
     }
 }

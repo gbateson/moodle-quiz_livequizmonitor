@@ -31,7 +31,7 @@ import {
     applyColumnVisibility,
     saveHiddenColumns,
 } from 'quiz_livequizmonitor/column_visibility';
-import {createMonitorReactive, formatDuration} from 'quiz_livequizmonitor/reactive/monitor_state';
+import {ALL_FLAGS, createMonitorReactive, formatDuration} from 'quiz_livequizmonitor/reactive/monitor_state';
 import {showPasswordModal} from 'quiz_livequizmonitor/show_password_modal';
 import {showExtendModal} from 'quiz_livequizmonitor/extend_time_modal';
 import {showStudentNoteModal} from 'quiz_livequizmonitor/student_note_modal';
@@ -198,6 +198,7 @@ class MonitorComponent extends BaseComponent {
             {watch: 'meta.totalstudents:updated', handler: this.renderFilterToolbar},
             {watch: 'meta.sortcolumn:updated', handler: this.renderSortIndicators},
             {watch: 'meta.sortdirection:updated', handler: this.renderSortIndicators},
+            {watch: 'meta.nooverridecount:updated', handler: this.renderFilterToolbar},
             {watch: 'meta.useroverridecount:updated', handler: this.renderFilterToolbar},
             {watch: 'meta.groupoverridecount:updated', handler: this.renderFilterToolbar},
             {watch: 'meta.canviewoverrides:updated', handler: this.renderFilterToolbar},
@@ -1172,12 +1173,16 @@ class MonitorComponent extends BaseComponent {
         });
 
         const flagcounts = {
+            nooverride: state.meta?.nooverridecount ?? 0,
             useroverride: state.meta?.useroverridecount ?? 0,
             groupoverride: state.meta?.groupoverridecount ?? 0,
+            alloverride: state.meta?.totalstudents ?? 0,
         };
         this.element.querySelectorAll(this.selectors.FILTERFLAG).forEach((flagbtn) => {
             const flag = flagbtn.dataset.flag;
-            const isActive = !!state.meta?.filters?.[flag];
+            const isActive = ALL_FLAGS[flag]
+                ? !ALL_FLAGS[flag].some((groupFlag) => state.meta?.filters?.[groupFlag])
+                : !!state.meta?.filters?.[flag];
             flagbtn.classList.toggle('btn-primary', isActive);
             flagbtn.classList.toggle('btn-outline-secondary', !isActive);
             flagbtn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
