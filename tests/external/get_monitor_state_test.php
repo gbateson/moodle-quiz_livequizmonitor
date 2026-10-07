@@ -210,6 +210,7 @@ final class get_monitor_state_test extends advanced_testcase {
         $result = get_monitor_state::execute($cm->id, 0);
 
         $this->assertTrue($result['canviewoverrides']);
+        $this->assertSame(0, $result['nooverridecount']);
         $this->assertSame(1, $result['useroverridecount']);
         $this->assertSame(0, $result['groupoverridecount']);
         $this->assertTrue($result['students'][0]['hasuseroverride']);
@@ -265,6 +266,7 @@ final class get_monitor_state_test extends advanced_testcase {
             $bystudent[$row['userid']] = $row;
         }
 
+        $this->assertSame(0, $result['nooverridecount']);
         $this->assertSame(1, $result['useroverridecount']);
         $this->assertSame(1, $result['groupoverridecount']);
 

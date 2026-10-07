@@ -31,7 +31,7 @@ import {Reactive} from 'core/reactive';
  * @type {string[][]}
  */
 const MUTUALLY_EXCLUSIVE_FLAG_GROUPS = [
-    ['useroverride', 'groupoverride'],
+    ['nooverride', 'useroverride', 'groupoverride'],
 ];
 
 /**
@@ -87,6 +87,7 @@ export const createInitialState = () => ({
         filters: {
             search: '',
             status: 'all',
+            nooverride: false,
             useroverride: false,
             groupoverride: false,
         },
@@ -98,6 +99,7 @@ export const createInitialState = () => ({
         onesessionactive: false,
         canunblock: false,
         canviewoverrides: false,
+        nooverridecount: 0,
         useroverridecount: 0,
         groupoverridecount: 0,
         canviewattempts: false,
@@ -163,6 +165,9 @@ class MonitorMutations {
         }
         if (payload.canviewoverrides !== undefined) {
             stateManager.state.meta.canviewoverrides = payload.canviewoverrides;
+        }
+        if (payload.nooverridecount !== undefined) {
+            stateManager.state.meta.nooverridecount = payload.nooverridecount;
         }
         if (payload.useroverridecount !== undefined) {
             stateManager.state.meta.useroverridecount = payload.useroverridecount;
@@ -292,6 +297,7 @@ class MonitorMutations {
         stateManager.setReadOnly(false);
         stateManager.state.meta.filters.search = '';
         stateManager.state.meta.filters.status = 'all';
+        stateManager.state.meta.filters.nooverride = false;
         stateManager.state.meta.filters.useroverride = false;
         stateManager.state.meta.filters.groupoverride = false;
         stateManager.setReadOnly(true);

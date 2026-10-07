@@ -185,6 +185,7 @@ class monitor_manager {
             $row->hasnote = !empty($hasnotemap[$row->userid]);
         }
 
+        $nooverridecount = 0;
         $useroverridecount = 0;
         $groupoverridecount = 0;
         $canviewoverrides = overrides_manager::user_can_view_overrides($context);
@@ -220,12 +221,18 @@ class monitor_manager {
                     $row->timeoverrideflaglabel = '';
                 }
 
-                // Update override counts, if necessary.
+                // Update override counts, as necessary.
+                $nooverride = true;
                 if ($row->hasuseroverride) {
                     $useroverridecount++;
+                    $nooverride = false;
                 }
                 if ($row->hasgroupoverride) {
                     $groupoverridecount++;
+                    $nooverride = false;
+                }
+                if ($nooverride) {
+                    $nooverridecount++;
                 }
             }
         }
@@ -272,6 +279,7 @@ class monitor_manager {
             'sortcolumn' => $sortcolumn,
             'sortdirection' => $sortdirection,
             'canviewoverrides' => $canviewoverrides,
+            'nooverridecount' => $nooverridecount,
             'useroverridecount' => $useroverridecount,
             'groupoverridecount' => $groupoverridecount,
         ];

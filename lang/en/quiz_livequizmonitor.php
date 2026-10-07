@@ -51,6 +51,7 @@ $string['filter:groupoverride'] = 'With group override';
 $string['filter:groupoverrideflag'] = 'This student has a group override';
 $string['filter:grouptimeoverrideflag'] = 'This student has a time-related group override';
 $string['filter:namelabel'] = 'Name';
+$string['filter:nooverride'] = 'With no overrides';
 $string['filter:overridesgrouplabel'] = 'Overrides';
 $string['filter:resetall'] = 'Reset all filters';
 $string['filter:searchplaceholder'] = 'Search students…';
