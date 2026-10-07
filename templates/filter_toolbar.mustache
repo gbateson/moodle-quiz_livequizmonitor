@@ -24,6 +24,9 @@
             ],
             "canviewoverrides": true,
             "overridesgrouplabel": "Overrides",
+            "nooverridelabel": "With no overrides",
+            "nooverridecount": 1,
+            "nooverrideactive": false,
             "useroverridelabel": "Has extension",
             "useroverridecount": 1,
             "useroverrideactive": false,
@@ -73,6 +76,13 @@
         <div class="livequizmonitor-filter-group" data-filter-group="overrides">
             <span class="livequizmonitor-filter-group-label">{{filter.overridesgrouplabel}}{{filter.labelsep}}</span>
             <div class="livequizmonitor-filter-group-controls">
+                <button type="button"
+                        class="btn{{#filter.nooverrideactive}} btn-primary{{/filter.nooverrideactive}}{{^filter.nooverrideactive}} btn-outline-secondary{{/filter.nooverrideactive}}"
+                        data-action="filter-flag"
+                        data-flag="nooverride"
+                        aria-pressed="{{#filter.nooverrideactive}}true{{/filter.nooverrideactive}}{{^filter.nooverrideactive}}false{{/filter.nooverrideactive}}">
+                    {{filter.nooverridelabel}} (<span data-filter-count="nooverride">{{filter.nooverridecount}}</span>)
+                </button>
                 <button type="button"
                         class="btn{{#filter.useroverrideactive}} btn-primary{{/filter.useroverrideactive}}{{^filter.useroverrideactive}} btn-outline-secondary{{/filter.useroverrideactive}}"
                         data-action="filter-flag"

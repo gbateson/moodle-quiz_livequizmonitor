@@ -39,7 +39,7 @@ class monitor_renderer extends plugin_renderer_base {
      *
      * @var string[]
      */
-    protected const SORTABLE_COLUMNS = ['status', 'student', 'email', 'progress', 'timeremaining']; 
+    protected const SORTABLE_COLUMNS = ['status', 'student', 'email', 'progress', 'timeremaining'];
 
     /**
      * Prepare template context from monitor state.
@@ -264,6 +264,9 @@ class monitor_renderer extends plugin_renderer_base {
             ],
             'canviewoverrides' => !empty($state->canviewoverrides),
             'overridesgrouplabel' => get_string('filter:overridesgrouplabel', 'quiz_livequizmonitor'),
+            'nooverridelabel' => get_string('filter:nooverride', 'quiz_livequizmonitor'),
+            'nooverridecount' => $state->nooverridecount ?? 0,
+            'nooverrideactive' => false,
             'useroverridelabel' => get_string('filter:useroverride', 'quiz_livequizmonitor'),
             'useroverridecount' => $state->useroverridecount ?? 0,
             'useroverrideactive' => false,

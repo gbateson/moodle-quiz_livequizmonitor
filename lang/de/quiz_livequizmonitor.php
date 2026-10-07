@@ -51,6 +51,7 @@ $string['filter:groupoverride'] = 'Mit Gruppenänderung';
 $string['filter:groupoverrideflag'] = 'Für diese Person gilt eine Gruppenänderung';
 $string['filter:grouptimeoverrideflag'] = 'Für diese Person gilt eine zeitbezogene Gruppenänderung';
 $string['filter:namelabel'] = 'Name';
+$string['filter:nooverride'] = 'Ohne Änderungen';
 $string['filter:overridesgrouplabel'] = 'Änderungen';
 $string['filter:resetall'] = 'Alle Filter zurücksetzen';
 $string['filter:searchplaceholder'] = 'Teilnehmende suchen…';

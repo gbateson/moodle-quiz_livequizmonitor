@@ -194,6 +194,7 @@ class MonitorComponent extends BaseComponent {
             {watch: 'meta.totalstudents:updated', handler: this.renderFilterToolbar},
             {watch: 'meta.sortcolumn:updated', handler: this.renderSortIndicators},
             {watch: 'meta.sortdirection:updated', handler: this.renderSortIndicators},
+            {watch: 'meta.nooverridecount:updated', handler: this.renderFilterToolbar},
             {watch: 'meta.useroverridecount:updated', handler: this.renderFilterToolbar},
             {watch: 'meta.groupoverridecount:updated', handler: this.renderFilterToolbar},
             {watch: 'meta.canviewoverrides:updated', handler: this.renderFilterToolbar},
@@ -1141,6 +1142,7 @@ class MonitorComponent extends BaseComponent {
         });
 
         const flagcounts = {
+            nooverride: state.meta?.nooverridecount ?? 0,
             useroverride: state.meta?.useroverridecount ?? 0,
             groupoverride: state.meta?.groupoverridecount ?? 0,
         };
