@@ -38,25 +38,33 @@ import {getString} from 'core/str';
  * @returns {Promise<object|null>}
  */
 export const showUnblockModal = async(config) => {
-    const [modaltitle, modalbody, confirm, success] = await Promise.all([
+    const [modaltitle, modalbody, confirm, success, requestfailed] = await Promise.all([
         getString('onesession:unblockmodaltitle', 'quiz_livequizmonitor', config.studentname ?? ''),
         getString('onesession:unblockmodalbody', 'quiz_livequizmonitor'),
         getString('onesession:unblockconfirm', 'quiz_livequizmonitor'),
         getString('onesession:unblocksuccess', 'quiz_livequizmonitor'),
+        getString('error:requestfailed', 'quiz_livequizmonitor'),
     ]);
 
     const modal = await ModalSaveCancel.create({
         title: modaltitle,
-        body: `<p class="mb-0">${modalbody}</p>`,
+        body: `<p class="mb-0">${modalbody}</p>
+            <div class="alert alert-danger mt-3 mb-0 d-none" data-region="request-error" role="alert">${requestfailed}</div>`,
     });
 
     modal.setSaveButtonText(confirm);
     await modal.show();
 
+    const root = modal.getRoot()[0];
+
     let finished = false;
 
     return new Promise((resolve) => {
-        modal.getRoot().on(ModalEvents.save, async() => {
+        modal.getRoot().on(ModalEvents.save, async(event) => {
+            // Keep the modal open until the request has finished, so that a failed request
+            // can be retried and the result is only resolved once the server has answered.
+            event.preventDefault();
+            root.querySelector('[data-region="request-error"]').classList.add('d-none');
             modal.getRoot().find('[data-action="save"]').prop('disabled', true);
 
             try {
@@ -79,7 +87,12 @@ export const showUnblockModal = async(config) => {
                 resolve(response);
             } catch (error) {
                 modal.getRoot().find('[data-action="save"]').prop('disabled', false);
-                Notification.exception(error);
+                if (error && typeof error === 'object') {
+                    Notification.exception(error);
+                } else {
+                    // The server could not be reached, so core/ajax rejected without an exception object.
+                    root.querySelector('[data-region="request-error"]').classList.remove('d-none');
+                }
             }
         });
 

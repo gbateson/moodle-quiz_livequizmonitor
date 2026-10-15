@@ -125,7 +125,11 @@ export const showStudentNoteModal = async(config) => {
     let finished = false;
 
     return new Promise((resolve) => {
-        modal.getRoot().on(ModalEvents.save, async() => {
+        modal.getRoot().on(ModalEvents.save, async(event) => {
+            // Keep the modal open until the request has finished, so that a failed request
+            // can be retried and the result is only resolved once the server has answered.
+            event.preventDefault();
+            root.querySelector('[data-region="request-error"]').classList.add('d-none');
             modal.getRoot().find('[data-action="save"]').prop('disabled', true);
             const content = textarea ? textarea.value : '';
 
@@ -151,7 +155,12 @@ export const showStudentNoteModal = async(config) => {
                 resolve(response);
             } catch (error) {
                 modal.getRoot().find('[data-action="save"]').prop('disabled', false);
-                Notification.exception(error);
+                if (error && typeof error === 'object') {
+                    Notification.exception(error);
+                } else {
+                    // The server could not be reached, so core/ajax rejected without an exception object.
+                    root.querySelector('[data-region="request-error"]').classList.remove('d-none');
+                }
             }
         });
 
