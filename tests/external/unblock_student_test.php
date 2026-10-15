@@ -272,4 +272,27 @@ final class unblock_student_test extends advanced_testcase {
             throw $e;
         }
     }
+
+    /**
+     * Teacher without any group in separate groups mode cannot unblock any student.
+     */
+    public function test_execute_rejects_groupless_teacher(): void {
+        $this->resetAfterTest();
+
+        $fixture = $this->create_separate_groups_fixture();
+        $quizgenerator = $this->getDataGenerator()->get_plugin_generator('mod_quiz');
+
+        $this->setUser($fixture['studenta']);
+        $attempt = $quizgenerator->create_attempt($fixture['quiz']->id, $fixture['studenta']->id);
+
+        $this->setUser($this->create_groupless_teacher($fixture));
+
+        $this->expectException(moodle_exception::class);
+        try {
+            unblock_student::execute($fixture['cm']->id, $fixture['studenta']->id, $attempt->id);
+        } catch (moodle_exception $e) {
+            $this->assertSame('error:usernotvisible', $e->errorcode);
+            throw $e;
+        }
+    }
 }

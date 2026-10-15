@@ -24,8 +24,14 @@
 
 namespace quiz_livequizmonitor\external;
 
+defined('MOODLE_INTERNAL') || die();
+
+require_once(__DIR__ . '/../traits/group_scope_test_trait.php');
+
 use advanced_testcase;
+use moodle_exception;
 use quiz_livequizmonitor\local\manager\student_note_manager;
+use quiz_livequizmonitor\tests\traits\group_scope_test_trait;
 use required_capability_exception;
 
 /**
@@ -35,6 +41,8 @@ use required_capability_exception;
  * @runTestsInSeparateProcesses
  */
 final class get_student_note_test extends advanced_testcase {
+    use group_scope_test_trait;
+
     /**
      * Create course, teacher, student, and quiz module for monitor API tests.
      *
@@ -97,5 +105,48 @@ final class get_student_note_test extends advanced_testcase {
 
         $this->expectException(required_capability_exception::class);
         get_student_note::execute($cm->id, 0, $student->id);
+    }
+
+    /**
+     * Teacher restricted to Group A cannot read notes of a Group B student via a foreign group id.
+     */
+    public function test_execute_rejects_foreign_group(): void {
+        $this->resetAfterTest();
+
+        $fixture = $this->create_separate_groups_fixture();
+        student_note_manager::save_note(
+            (int) $fixture['quiz']->id,
+            (int) $fixture['studentb']->id,
+            (int) get_admin()->id,
+            'Confidential'
+        );
+
+        $this->setUser($fixture['teacher']);
+
+        $this->expectException(moodle_exception::class);
+        try {
+            get_student_note::execute($fixture['cm']->id, (int) $fixture['groupb']->id, $fixture['studentb']->id);
+        } catch (moodle_exception $e) {
+            $this->assertSame('error:groupnotvisible', $e->errorcode);
+            throw $e;
+        }
+    }
+
+    /**
+     * Teacher without any group in separate groups mode cannot read notes.
+     */
+    public function test_execute_rejects_groupless_teacher(): void {
+        $this->resetAfterTest();
+
+        $fixture = $this->create_separate_groups_fixture();
+        $this->setUser($this->create_groupless_teacher($fixture));
+
+        $this->expectException(moodle_exception::class);
+        try {
+            get_student_note::execute($fixture['cm']->id, 0, $fixture['studentb']->id);
+        } catch (moodle_exception $e) {
+            $this->assertSame('error:usernotvisible', $e->errorcode);
+            throw $e;
+        }
     }
 }

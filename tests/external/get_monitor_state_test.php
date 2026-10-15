@@ -158,6 +158,22 @@ final class get_monitor_state_test extends advanced_testcase {
     }
 
     /**
+     * Teacher without any group in separate groups mode does not see students of all groups.
+     */
+    public function test_execute_groupless_teacher_sees_no_students(): void {
+        $this->resetAfterTest();
+
+        $fixture = $this->create_separate_groups_fixture();
+        $this->setUser($this->create_groupless_teacher($fixture));
+
+        $result = get_monitor_state::execute($fixture['cm']->id, 0);
+
+        $this->assertSame(0, $result['totalstudents']);
+        $this->assertFalse($result['hasstudents']);
+        $this->assertCount(0, $result['students']);
+    }
+
+    /**
      * The idle summary bucket survives the external API's structure validation.
      */
     public function test_execute_returns_includes_idle_summary_bucket(): void {

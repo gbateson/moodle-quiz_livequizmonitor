@@ -73,6 +73,16 @@ trait group_scope_test_trait {
     }
 
     /**
+     * Enrol a teacher in the separate-groups fixture course without any group membership.
+     *
+     * @param array $fixture Fixture from create_separate_groups_fixture().
+     * @return \stdClass Teacher user record.
+     */
+    protected function create_groupless_teacher(array $fixture): \stdClass {
+        return $this->getDataGenerator()->create_and_enrol($fixture['course'], 'editingteacher');
+    }
+
+    /**
      * Create a separate-groups course with teacher in Group A and students split across A/B.
      *
      * @return array<string, mixed>

@@ -45,6 +45,8 @@ const SECURITY_QUIZ_NAME = 'Security Test Quiz';
 const SECURITY_TEACHER_USERNAME = 'teachera';
 /** @var string Password for teacher A in the security fixture. */
 const SECURITY_TEACHER_PASSWORD = 'Teacher123!';
+/** @var string Username for the teacher without any group in the security fixture. */
+const SECURITY_TEACHER_NOGROUP_USERNAME = 'teachernogroup';
 /** @var string Username for student A in the security fixture. */
 const SECURITY_STUDENT_A = 'studenta';
 /** @var string Username for student B in the security fixture. */
@@ -112,10 +114,12 @@ $course = $generator->create_course([
 ]);
 
 $teacher = demo_get_user(SECURITY_TEACHER_USERNAME, SECURITY_TEACHER_PASSWORD);
+$teachernogroup = demo_get_user(SECURITY_TEACHER_NOGROUP_USERNAME, SECURITY_TEACHER_PASSWORD);
 $studenta = demo_get_user(SECURITY_STUDENT_A, SECURITY_STUDENT_PASSWORD);
 $studentb = demo_get_user(SECURITY_STUDENT_B, SECURITY_STUDENT_PASSWORD);
 
 $generator->enrol_user($teacher->id, $course->id, 'editingteacher');
+$generator->enrol_user($teachernogroup->id, $course->id, 'editingteacher');
 $generator->enrol_user($studenta->id, $course->id, 'student');
 $generator->enrol_user($studentb->id, $course->id, 'student');
 
@@ -160,6 +164,8 @@ if (!$quiet) {
     mtrace('Course:   ' . SECURITY_COURSE_SHORTNAME . ' (id ' . $course->id . ')');
     mtrace('Groups:   Group A (teacher + studenta), Group B (studentb)');
     mtrace('Teacher:  ' . SECURITY_TEACHER_USERNAME . ' / ' . SECURITY_TEACHER_PASSWORD . ' (Group A only, no accessallgroups)');
+    mtrace('Teacher:  ' . SECURITY_TEACHER_NOGROUP_USERNAME . ' / ' . SECURITY_TEACHER_PASSWORD
+        . ' (no group, no accessallgroups)');
     mtrace('Students: ' . SECURITY_STUDENT_A . ', ' . SECURITY_STUDENT_B . ' / ' . SECURITY_STUDENT_PASSWORD);
     mtrace('Quiz:     ' . SECURITY_QUIZ_NAME . ' (cmid ' . $cm->id . ')');
     mtrace('URLs:');

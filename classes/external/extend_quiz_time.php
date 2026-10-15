@@ -106,14 +106,14 @@ class extend_quiz_time extends external_api {
         require_capability('quiz/livequizmonitor:view', $context);
         require_capability('mod/quiz:manageoverrides', $context);
 
-        supervision_scope_manager::validate_group_access((int) $params['groupid'], $cm);
+        $groupid = supervision_scope_manager::resolve_group((int) $params['groupid'], $cm, $context);
 
         if ($params['scope'] === extend_time_manager::SCOPE_INDIVIDUAL) {
             if (
                 !supervision_scope_manager::is_user_in_cohort(
                     (int) $params['userid'],
                     $context,
-                    (int) $params['groupid'],
+                    $groupid,
                     $cm
                 )
             ) {
@@ -125,7 +125,7 @@ class extend_quiz_time extends external_api {
             $course,
             $cm,
             $quiz,
-            (int) $params['groupid'],
+            $groupid,
             (int) $params['minutes'],
             $params['scope'],
             (int) $params['userid']
