@@ -30,6 +30,7 @@ require_once($CFG->dirroot . '/mod/quiz/locallib.php');
 
 use cm_info;
 use context_module;
+use core\lock\lock_config;
 use core\message\message;
 use mod_quiz\quiz_attempt;
 use mod_quiz\quiz_settings;
@@ -48,6 +49,12 @@ class extend_time_manager {
 
     /** @var string Bulk extend scope. */
     public const SCOPE_BULK = 'bulk';
+
+    /** @var string[] Overrideable quiz settings stored in quiz_overrides. */
+    private const OVERRIDE_FIELDS = ['timeopen', 'timeclose', 'timelimit', 'attempts', 'password'];
+
+    /** @var int Seconds to wait for the per-user extension lock. */
+    private const LOCK_TIMEOUT = 10;
 
     /**
      * Whether the current user may extend quiz time on this monitor.
@@ -187,58 +194,30 @@ class extend_time_manager {
             throw new moodle_exception('noattempttoextend', 'quiz_livequizmonitor', '', fullname($user));
         }
 
-        $attemptobj = quiz_attempt::create((int) $attempt->id);
-        $now = time();
-        $accessmanager = $attemptobj->get_access_manager($now);
-        $endtime = $accessmanager->get_end_time($attempt);
-        if ($endtime === false) {
-            throw new moodle_exception('noextendablelimit', 'quiz_livequizmonitor', '', fullname($user));
+        // Serialise read-modify-write per user so concurrent extensions neither get lost
+        // nor create duplicate overrides.
+        $lockfactory = lock_config::get_lock_factory('quiz_livequizmonitor_extend');
+        $lock = $lockfactory->get_lock("{$quiz->id}_{$userid}", self::LOCK_TIMEOUT);
+        if (!$lock) {
+            throw new moodle_exception('locktimeout');
         }
 
-        $extra = $minutes * 60;
-        $quizsettings = quiz_settings::create((int) $quiz->id, $userid);
-        $effectivequiz = $quizsettings->get_quiz();
-
-        $override = $DB->get_record('quiz_overrides', [
-            'quiz' => $quiz->id,
-            'userid' => $userid,
-        ]);
-
-        if (!empty($effectivequiz->timelimit)) {
-            $newtimelimit = max(0, ($endtime - $attempt->timestart) + $extra);
-            if ($override) {
-                $override->timelimit = $newtimelimit;
-                $DB->update_record('quiz_overrides', $override);
-            } else {
-                $override = (object) [
-                    'quiz' => (int) $quiz->id,
-                    'userid' => $userid,
-                    'timelimit' => $newtimelimit,
-                ];
-                $override->id = $DB->insert_record('quiz_overrides', $override);
+        try {
+            $accessmanager = quiz_attempt::create((int) $attempt->id)->get_access_manager(time());
+            $endtime = $accessmanager->get_end_time($attempt);
+            $values = $endtime === false ? [] : self::compute_extended_limits(
+                quiz_settings::create((int) $quiz->id, $userid)->get_quiz(),
+                (int) $attempt->timestart,
+                (int) $endtime + $minutes * 60
+            );
+            if ($values === []) {
+                throw new moodle_exception('noextendablelimit', 'quiz_livequizmonitor', '', fullname($user));
             }
-        } else if (!empty($effectivequiz->timeclose)) {
-            $newtimeclose = $endtime + $extra;
-            if ($override) {
-                $override->timeclose = $newtimeclose;
-                $DB->update_record('quiz_overrides', $override);
-            } else {
-                $override = (object) [
-                    'quiz' => (int) $quiz->id,
-                    'userid' => $userid,
-                    'timeclose' => $newtimeclose,
-                ];
-                $override->id = $DB->insert_record('quiz_overrides', $override);
-            }
-        } else {
-            throw new moodle_exception('noextendablelimit', 'quiz_livequizmonitor', '', fullname($user));
+
+            self::save_user_override((int) $quiz->id, $userid, $values);
+        } finally {
+            $lock->release();
         }
-
-        self::purge_override_cache((int) $quiz->id, $userid);
-
-        $quizforupdate = clone $quiz;
-        $quizforupdate->cmid = $cm->id;
-        quiz_update_events($quizforupdate, $override);
 
         self::notify_student($user, $quiz, $minutes, $actorid);
 
@@ -273,20 +252,56 @@ class extend_time_manager {
     }
 
     /**
-     * Purge quiz override cache for a user.
+     * Compute the override values needed so the attempt ends at the target time.
+     *
+     * Every limit that is set (time limit and/or close date) is raised to the target,
+     * but never lowered. Limits already beyond the target are left untouched.
+     *
+     * @param stdClass $effectivequiz Quiz settings with the user's overrides applied.
+     * @param int $timestart Attempt start time.
+     * @param int $target Desired new attempt end time.
+     * @return array<string, int> Changed override fields (timelimit and/or timeclose).
+     */
+    public static function compute_extended_limits(stdClass $effectivequiz, int $timestart, int $target): array {
+        $values = [];
+        if (!empty($effectivequiz->timelimit) && $timestart + (int) $effectivequiz->timelimit < $target) {
+            $values['timelimit'] = $target - $timestart;
+        }
+        if (!empty($effectivequiz->timeclose) && (int) $effectivequiz->timeclose < $target) {
+            $values['timeclose'] = $target;
+        }
+        return $values;
+    }
+
+    /**
+     * Create or update the user's override through the core override manager.
+     *
+     * Existing override settings (open date, attempts, password, ...) are carried over,
+     * because the override manager clears every setting that is not passed in.
      *
      * @param int $quizid Quiz id.
-     * @param int $userid User id.
+     * @param int $userid Target user id.
+     * @param array $values Override fields to set (field => value).
      */
-    protected static function purge_override_cache(int $quizid, int $userid): void {
-        if (class_exists(\mod_quiz\local\quiz_overrides_cache_manager::class)) {
-            \mod_quiz\local\quiz_overrides_cache_manager::purge_for_user($quizid, $userid);
-            return;
+    protected static function save_user_override(int $quizid, int $userid, array $values): void {
+        global $DB;
+
+        // Base quiz settings (without overrides) so unchanged values are compared correctly.
+        $manager = quiz_settings::create($quizid)->get_override_manager();
+        $manager->require_manage_capability();
+
+        $formdata = ['userid' => $userid];
+        $override = $DB->get_record('quiz_overrides', ['quiz' => $quizid, 'userid' => $userid]);
+        if ($override) {
+            $formdata['id'] = (int) $override->id;
+            foreach (self::OVERRIDE_FIELDS as $field) {
+                if ($override->$field !== null) {
+                    $formdata[$field] = $override->$field;
+                }
+            }
         }
 
-        if (class_exists(\cache::class)) {
-            \cache::make('mod_quiz', 'overrides')->delete("{$quizid}_u_{$userid}");
-        }
+        $manager->save_override(array_merge($formdata, $values));
     }
 
     /**
