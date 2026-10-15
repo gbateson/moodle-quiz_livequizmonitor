@@ -34,8 +34,6 @@ const DEMO_COURSE_SHORTNAME = 'QUIZMON';
 const DEMO_QUIZ_NAME = 'Live Quiz Monitor Demo';
 /** @var int Number of demo students to create. */
 const DEMO_STUDENT_COUNT = 20;
-/** @var string Password assigned to demo student accounts. */
-const DEMO_STUDENT_PASSWORD = 'Student123!';
 /** @var int Number of short-answer questions in the demo quiz. */
 const DEMO_QUESTION_COUNT = 10;
 /** @var int Demo quiz time limit in seconds. */
@@ -46,6 +44,37 @@ const DEMO_INTERVAL_MIN = 1;
 const DEMO_INTERVAL_MAX = 1;
 /** @var int Total demo simulation duration in seconds. */
 const DEMO_DURATION = 120;
+
+/** @var string config.php flag that enables the development tooling in this folder. */
+const DEMO_DEVTOOLS_CONFIG = 'quiz_livequizmonitor_devtools';
+
+/**
+ * Abort unless the development tooling is explicitly enabled in config.php.
+ *
+ * These scripts create users, courses and attempts with the testing data generator
+ * and may delete courses, so they must never run on a production site by accident.
+ */
+function demo_require_devtools(): void {
+    global $CFG;
+
+    if (empty($CFG->{DEMO_DEVTOOLS_CONFIG})) {
+        cli_error('Development tooling is disabled. Only on development sites, add'
+            . ' $CFG->' . DEMO_DEVTOOLS_CONFIG . ' = true; to config.php.');
+    }
+}
+
+/**
+ * Password for newly created demo accounts: the --password option or a random one.
+ *
+ * @param mixed $option Value of the --password CLI option (false or empty when not given).
+ * @return string
+ */
+function demo_resolve_password($option): string {
+    if (is_string($option) && $option !== '') {
+        return $option;
+    }
+    return generate_password(12);
+}
 
 /**
  * Build demo student usernames (student01 … studentNN).
@@ -76,14 +105,18 @@ function demo_log(string $message, bool $quiet): void {
 /**
  * Resolve an existing user by username or create a demo student.
  *
+ * Existing accounts keep their password; only new accounts get $password.
+ *
  * @param string $username
- * @param string $password
+ * @param string $password Password for a newly created account.
+ * @param bool|null $created Set to true when the account was created.
  * @return stdClass
  */
-function demo_get_user(string $username, string $password = DEMO_STUDENT_PASSWORD): stdClass {
+function demo_get_user(string $username, string $password, ?bool &$created = null): stdClass {
     global $DB, $CFG;
 
     $user = $DB->get_record('user', ['username' => $username, 'deleted' => 0], '*', IGNORE_MISSING);
+    $created = !$user;
     if (!$user) {
         require_once($CFG->libdir . '/testing/classes/util.php');
         $generator = testing_util::get_data_generator();
@@ -96,6 +129,22 @@ function demo_get_user(string $username, string $password = DEMO_STUDENT_PASSWOR
         ]);
     }
     return $user;
+}
+
+/**
+ * Print which password applies to the demo accounts of this run.
+ *
+ * @param string $password Password used for new accounts.
+ * @param int $created Number of accounts created in this run.
+ * @param int $total Number of accounts used in this run.
+ */
+function demo_print_password(string $password, int $created, int $total): void {
+    if ($created > 0) {
+        mtrace('Password:  ' . $password . ' for the ' . $created . ' account(s) created in this run');
+    }
+    if ($created < $total) {
+        mtrace('           ' . ($total - $created) . ' existing account(s) kept their password');
+    }
 }
 
 /**
