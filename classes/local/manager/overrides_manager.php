@@ -144,6 +144,36 @@ class overrides_manager {
     }
 
     /**
+     * Get the users that have a user override or belong to a group with a group override.
+     *
+     * @param int $quizid Quiz id.
+     * @param int[] $userids Candidate user ids.
+     * @return bool[] Map user id => true for users with any override.
+     */
+    public static function get_userids_with_overrides(int $quizid, array $userids): array {
+        global $DB;
+
+        if ($userids === []) {
+            return [];
+        }
+
+        $result = [];
+        $groupids = [];
+        foreach ($DB->get_records('quiz_overrides', ['quiz' => $quizid], '', 'id, userid, groupid') as $override) {
+            if (!empty($override->userid)) {
+                $result[(int) $override->userid] = true;
+            } else if (!empty($override->groupid)) {
+                $groupids[(int) $override->groupid] = (int) $override->groupid;
+            }
+        }
+        foreach (array_keys(self::get_override_group_memberships(array_values($groupids), $userids)) as $userid) {
+            $result[(int) $userid] = true;
+        }
+
+        return array_intersect_key($result, array_flip($userids));
+    }
+
+    /**
      * Get the override groups that each of the given users belongs to.
      *
      * @param int[] $groupids Ids of groups that have an override for this quiz.
