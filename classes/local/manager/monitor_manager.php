@@ -116,7 +116,7 @@ class monitor_manager {
      * @param stdClass $course Course record.
      * @param cm_info|stdClass $cm Course module record or cached cm_info.
      * @param stdClass $quiz Quiz instance record.
-     * @param int $groupid Active group id (0 = all visible groups).
+     * @param int $groupid Requested group id (resolved via supervision_scope_manager::resolve_group()).
      * @param string $sortcolumn Column to sort by.
      * @param string $sortdirection Sort direction ('asc' or 'desc').
      * @return stdClass MonitorState payload.
@@ -140,11 +140,12 @@ class monitor_manager {
         $canviewlogs = has_any_capability(['report/log:view', 'report/log:viewtoday'], $context);
 
         // Resolve group for enrolment query (respect quiz report group mode).
-        if ($groupid <= 0) {
-            $groupid = groups_get_activity_group($cm, true) ?: 0;
+        $groupid = supervision_scope_manager::resolve_group($groupid, $cm, $context);
+        if ($groupid === supervision_scope_manager::NO_GROUPS_ALLOWED) {
+            $students = [];
+        } else {
+            $students = get_enrolled_users($context, 'mod/quiz:attempt', $groupid, 'u.*', 'u.lastname ASC, u.firstname ASC');
         }
-
-        $students = get_enrolled_users($context, 'mod/quiz:attempt', $groupid, 'u.*', 'u.lastname ASC, u.firstname ASC');
         $totalquestions = self::count_quiz_questions((int) $quiz->id);
         $showemail = has_capability('moodle/course:viewhiddenuserfields', $context);
 

@@ -83,13 +83,13 @@ class get_monitor_state extends external_api {
         self::validate_context($context);
         require_capability('quiz/livequizmonitor:view', $context);
 
-        supervision_scope_manager::validate_group_access((int) $params['groupid'], $cm);
+        $groupid = supervision_scope_manager::resolve_group((int) $params['groupid'], $cm, $context);
 
         $state = monitor_manager::get_state(
             $course,
             $cm,
             $quiz,
-            (int) $params['groupid'],
+            $groupid,
             (string) $params['sortcolumn'],
             (string) $params['sortdirection']
         );

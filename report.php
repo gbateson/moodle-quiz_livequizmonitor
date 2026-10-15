@@ -23,6 +23,7 @@
  */
 
 use quiz_livequizmonitor\local\manager\monitor_manager;
+use quiz_livequizmonitor\local\manager\supervision_scope_manager;
 use quiz_livequizmonitor\output\monitor_renderer;
 
 /**
@@ -43,9 +44,14 @@ class quiz_livequizmonitor_report extends mod_quiz\local\reports\report_base {
         $context = context_module::instance($cm->id);
         require_capability('quiz/livequizmonitor:view', $context);
 
-        $groupid = groups_get_activity_group($cm, true) ?: 0;
+        $groupid = supervision_scope_manager::resolve_group(0, $cm, $context);
 
         $this->print_header_and_tabs($cm, $course, $quiz, 'livequizmonitor');
+
+        if ($groupid === supervision_scope_manager::NO_GROUPS_ALLOWED) {
+            echo $OUTPUT->notification(get_string('notingroup'), \core\output\notification::NOTIFY_INFO);
+            return true;
+        }
 
         $state = monitor_manager::get_state($course, $cm, $quiz, $groupid);
 
