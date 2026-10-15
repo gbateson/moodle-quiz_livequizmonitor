@@ -30,7 +30,9 @@ require_once($CFG->dirroot . '/mod/quiz/locallib.php');
 
 use cm_info;
 use context_module;
+use mod_quiz\access_manager;
 use mod_quiz\quiz_attempt;
+use mod_quiz\quiz_settings;
 use stdClass;
 
 /**
@@ -162,11 +164,37 @@ class monitor_manager {
             $attemptsbyuser[$attempt->userid][] = $attempt;
         }
 
+        $relevantattempts = [];
+        foreach ($students as $user) {
+            $relevant = self::pick_relevant_attempt($attemptsbyuser[$user->id] ?? []);
+            if ($relevant !== null) {
+                $relevantattempts[(int) $user->id] = $relevant;
+            }
+        }
+
+        // Load progress and access managers for all attempts at once instead of one quiz_attempt per student.
+        $progressmap = self::load_attempt_progress($relevantattempts);
+        $activeuserids = array_keys(array_filter(
+            $relevantattempts,
+            static fn(stdClass $attempt): bool => self::is_active_attempt_state($attempt->state)
+        ));
+        $accessmanagers = self::get_access_managers((int) $quiz->id, $activeuserids, $now);
+        $canextend = extend_time_manager::user_can_extend($context);
+
         $rows = [];
         foreach ($students as $user) {
-            $userattempts = $attemptsbyuser[$user->id] ?? [];
-            $relevant = self::pick_relevant_attempt($userattempts);
-            $rows[] = self::build_student_row($user, $relevant, $totalquestions, $quiz, $context, $now, $showemail);
+            $relevant = $relevantattempts[(int) $user->id] ?? null;
+            $rows[] = self::build_student_row(
+                $user,
+                $relevant,
+                $relevant ? ($progressmap[(int) $relevant->id] ?? null) : null,
+                $accessmanagers[(int) $user->id] ?? null,
+                $totalquestions,
+                $quiz,
+                $now,
+                $showemail,
+                $canextend
+            );
         }
 
         self::sort_student_rows($rows, $sortcolumn, $sortdirection);
@@ -280,6 +308,98 @@ class monitor_manager {
     protected static function count_quiz_questions(int $quizid): int {
         global $DB;
         return (int) $DB->count_records('quiz_slots', ['quizid' => $quizid]);
+    }
+
+    /**
+     * Load answered-question counts and last activity for many attempts with one query.
+     *
+     * Mirrors quiz_attempt: a question counts as answered when it is a real question
+     * (length > 0) and the state of its latest step is neither todo nor invalid
+     * (see quiz_attempt::get_number_of_unanswered_questions()). The last activity is the
+     * newest latest-step time over all questions (see quiz_attempt::get_question_action_time()).
+     * Autosaved steps have negative sequence numbers and are ignored, as in core.
+     *
+     * @param stdClass[] $attempts Attempt records.
+     * @return stdClass[] Map attempt id => {answered: int, lastaction: int}.
+     */
+    protected static function load_attempt_progress(array $attempts): array {
+        global $DB;
+
+        $attemptidbyusage = [];
+        foreach ($attempts as $attempt) {
+            $attemptidbyusage[(int) $attempt->uniqueid] = (int) $attempt->id;
+        }
+        if ($attemptidbyusage === []) {
+            return [];
+        }
+
+        [$usagesql, $params] = $DB->get_in_or_equal(array_keys($attemptidbyusage), SQL_PARAMS_NAMED, 'usage');
+        $params['todo'] = 'todo';
+        $params['invalid'] = 'invalid';
+
+        $sql = "SELECT qa.questionusageid,
+                       SUM(CASE WHEN q.length > 0 AND qas.state NOT IN (:todo, :invalid) THEN 1 ELSE 0 END) AS answered,
+                       MAX(qas.timecreated) AS lastaction
+                  FROM {question_attempts} qa
+                  JOIN {question} q ON q.id = qa.questionid
+                  JOIN {question_attempt_steps} qas ON qas.questionattemptid = qa.id
+                 WHERE qa.questionusageid $usagesql
+                   AND qas.sequencenumber = (
+                           SELECT MAX(laststep.sequencenumber)
+                             FROM {question_attempt_steps} laststep
+                            WHERE laststep.questionattemptid = qa.id
+                       )
+              GROUP BY qa.questionusageid";
+
+        $progress = [];
+        $rs = $DB->get_recordset_sql($sql, $params);
+        foreach ($rs as $row) {
+            $progress[$attemptidbyusage[(int) $row->questionusageid]] = (object) [
+                'answered' => (int) $row->answered,
+                'lastaction' => (int) $row->lastaction,
+            ];
+        }
+        $rs->close();
+
+        return $progress;
+    }
+
+    /**
+     * Get quiz access managers for users with an active attempt.
+     *
+     * Users without a user or group override share one access manager built from the
+     * base quiz settings. Users with an override get their own one, built from the
+     * effective settings exactly like quiz_settings::create($quizid, $userid).
+     *
+     * @param int $quizid Quiz id.
+     * @param int[] $userids Users with an active attempt.
+     * @param int $now Current timestamp.
+     * @return access_manager[] Map user id => access manager.
+     */
+    protected static function get_access_managers(int $quizid, array $userids, int $now): array {
+        if ($userids === []) {
+            return [];
+        }
+
+        $basesettings = quiz_settings::create($quizid);
+        $baseaccessmanager = $basesettings->get_access_manager($now);
+        $overridden = overrides_manager::get_userids_with_overrides($quizid, $userids);
+
+        $managers = [];
+        foreach ($userids as $userid) {
+            if (empty($overridden[$userid])) {
+                $managers[$userid] = $baseaccessmanager;
+                continue;
+            }
+            $usersettings = new quiz_settings(
+                quiz_update_effective_access(clone $basesettings->get_quiz(), $userid),
+                $basesettings->get_cm(),
+                $basesettings->get_course()
+            );
+            $managers[$userid] = $usersettings->get_access_manager($now);
+        }
+
+        return $managers;
     }
 
     /**
@@ -404,21 +524,25 @@ class monitor_manager {
      *
      * @param stdClass $user User record.
      * @param stdClass|null $attempt Relevant attempt.
+     * @param stdClass|null $progress Attempt progress from load_attempt_progress().
+     * @param access_manager|null $accessmanager Access manager for an active attempt.
      * @param int $totalquestions Total quiz questions.
      * @param stdClass $quiz Quiz record.
-     * @param context_module $context Module context.
      * @param int $now Current timestamp.
      * @param bool $showemail Whether email may be shown.
+     * @param bool $canextend Whether the viewer may extend time.
      * @return stdClass
      */
     protected static function build_student_row(
         stdClass $user,
         ?stdClass $attempt,
+        ?stdClass $progress,
+        ?access_manager $accessmanager,
         int $totalquestions,
         stdClass $quiz,
-        context_module $context,
         int $now,
-        bool $showemail
+        bool $showemail,
+        bool $canextend
     ): stdClass {
         $status = self::map_status($attempt);
         $statuslabel = self::status_label($status);
@@ -429,11 +553,9 @@ class monitor_manager {
         $attemptendat = null;
 
         if ($attempt !== null && $status !== self::STATUS_NOTSTARTED) {
+            $answered = $progress->answered ?? 0;
             try {
-                $attemptobj = quiz_attempt::create((int) $attempt->id);
-                $answered = self::count_answered_questions($attemptobj);
-                if ($status === self::STATUS_INPROGRESS) {
-                    $accessmanager = $attemptobj->get_access_manager($now);
+                if ($status === self::STATUS_INPROGRESS && $accessmanager !== null) {
                     $timeremaining = $accessmanager->get_time_left_display($attempt, $now);
                     $endtime = $accessmanager->get_end_time($attempt);
                     if ($endtime !== false) {
@@ -454,7 +576,7 @@ class monitor_manager {
                         $timeremaining = 0;
                         $timeremainingdisplay = get_string('timeup', 'quiz_livequizmonitor');
                     }
-                    if (self::is_attempt_idle($attemptobj, $now)) {
+                    if (self::is_attempt_idle($progress, $now)) {
                         $status = self::STATUS_IDLE;
                         $statuslabel = self::status_label($status);
                     }
@@ -474,8 +596,6 @@ class monitor_manager {
 
         $presentation = self::get_status_presentation($status);
         $progresspercent = self::compute_progress_percent($status, $answered, $totalquestions);
-
-        $canextend = extend_time_manager::user_can_extend($context);
 
         $hastimer = in_array($status, self::INPROGRESS_OR_IDLE) && $timeremaining !== null;
 
@@ -514,22 +634,6 @@ class monitor_manager {
     }
 
     /**
-     * Count answered questions on an attempt.
-     *
-     * @param quiz_attempt $attemptobj Attempt object.
-     * @return int
-     */
-    protected static function count_answered_questions(quiz_attempt $attemptobj): int {
-        $total = 0;
-        foreach ($attemptobj->get_slots() as $slot) {
-            if ($attemptobj->is_real_question($slot)) {
-                $total++;
-            }
-        }
-        return $total - $attemptobj->get_number_of_unanswered_questions();
-    }
-
-    /**
      * Localised label for monitor status.
      *
      * @param string $status Monitor status constant.
@@ -552,21 +656,12 @@ class monitor_manager {
      * Check whether or not the given quiz attempt is idle,
      * where "idle" means "no activity within the last 5 minutes".
      *
-     * @param quiz_attempt $attemptobj The quiz attempt.
+     * @param stdClass|null $progress Attempt progress from load_attempt_progress().
      * @param int $timenow Time stamp for the current time.
      * @return bool TRUE if the attempt is idle; otherwise FALSE.
      */
-    protected static function is_attempt_idle(quiz_attempt $attemptobj, int $timenow): bool {
-        $timestamp = $timenow - self::IDLE_THRESHOLD_SECONDS;
-
-        foreach ($attemptobj->get_slots() as $slot) {
-            if ($attemptobj->get_question_action_time($slot) > $timestamp) {
-                return false;
-            }
-        }
-
-        // No recent activity detected, so attempt is idle.
-        return true;
+    protected static function is_attempt_idle(?stdClass $progress, int $timenow): bool {
+        return ($progress->lastaction ?? 0) <= $timenow - self::IDLE_THRESHOLD_SECONDS;
     }
 
     /**
