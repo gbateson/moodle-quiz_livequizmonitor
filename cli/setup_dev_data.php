@@ -37,10 +37,9 @@ require_once(__DIR__ . '/setup_lib.php');
 
 use core\session\manager;
 
-if (
-    defined('CLI_SCRIPT') && !empty($_SERVER['SCRIPT_FILENAME'])
-        && realpath($_SERVER['SCRIPT_FILENAME']) === realpath(__FILE__)
-) {
+// Only run when executed directly (not when included). The first included file is the entry
+// script with an absolute path; SCRIPT_FILENAME may be relative to a directory Moodle changed away from.
+if (realpath(get_included_files()[0]) === realpath(__FILE__)) {
     [$options, $unrecognised] = cli_get_params(
         [
         'help' => false,
@@ -48,6 +47,7 @@ if (
         'force' => false,
         'clear-overrides' => false,
         'students' => DEMO_STUDENT_COUNT,
+        'password' => false,
         ],
         [
         'h' => 'help',
@@ -62,8 +62,11 @@ Options:
   --force            Delete and recreate course if it already exists
   --clear-overrides  Remove all user quiz overrides in QUIZMON and exit
   --students=N       Number of demo students to enrol (default: 20)
+  --password=PW      Password for newly created students (default: random)
   --quiet            Suppress informational output
   -h, --help         Print this help
+
+Requires \$CFG->quiz_livequizmonitor_devtools = true; in config.php (development sites only).
 
 Example:
   php mod/quiz/report/livequizmonitor/cli/setup_dev_data.php --force
@@ -73,8 +76,11 @@ EOF;
         exit(0);
     }
 
+    demo_require_devtools();
+
     $quiet = !empty($options['quiet']);
     $force = !empty($options['force']);
+    $password = demo_resolve_password($options['password']);
     $clearoverrides = !empty($options['clear-overrides']);
     $studentcount = max(1, (int) $options['students']);
 
@@ -120,8 +126,10 @@ EOF;
 
     $studentusernames = demo_student_usernames($studentcount);
     $students = [];
+    $createdcount = 0;
     foreach ($studentusernames as $username) {
-        $students[$username] = demo_get_user($username);
+        $students[$username] = demo_get_user($username, $password, $created);
+        $createdcount += (int) $created;
     }
     demo_log('Enrolling ' . count($studentusernames) . ' students', $quiet);
     demo_enrol_students($course->id, array_map(static fn(stdClass $u): int => (int) $u->id, $students), $quiet);
@@ -164,7 +172,7 @@ EOF;
             . $questioncount . ' questions, 5 min time limit)');
         mtrace('Students:  ' . count($studentusernames) . ' enrolled (student01–student'
             . sprintf('%02d', $studentcount) . '), all not started');
-        mtrace('Password:  ' . DEMO_STUDENT_PASSWORD . ' for all demo students');
+        demo_print_password($password, $createdcount, count($studentusernames));
         mtrace('URLs:');
         mtrace('  ' . $courseurl);
         mtrace('  ' . $quizurl);

@@ -163,6 +163,8 @@ Options:
   --quiet            Suppress informational output
   -h, --help         Print this help
 
+Requires \$CFG->quiz_livequizmonitor_devtools = true; in config.php (development sites only).
+
 Example:
   php mod/quiz/report/livequizmonitor/cli/setup_dev_data.php --force
   php mod/quiz/report/livequizmonitor/cli/simulate_quiz_demo.php
@@ -170,6 +172,8 @@ Example:
 EOF;
     exit(0);
 }
+
+demo_require_devtools();
 
 $quiet = !empty($options['quiet']);
 $intervalmin = max(1, (int) $options['interval-min']);

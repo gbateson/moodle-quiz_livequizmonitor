@@ -43,22 +43,19 @@ const SECURITY_COURSE_SHORTNAME = 'LQMSEC';
 const SECURITY_QUIZ_NAME = 'Security Test Quiz';
 /** @var string Username for teacher A in the security fixture. */
 const SECURITY_TEACHER_USERNAME = 'teachera';
-/** @var string Password for teacher A in the security fixture. */
-const SECURITY_TEACHER_PASSWORD = 'Teacher123!';
 /** @var string Username for the teacher without any group in the security fixture. */
 const SECURITY_TEACHER_NOGROUP_USERNAME = 'teachernogroup';
 /** @var string Username for student A in the security fixture. */
 const SECURITY_STUDENT_A = 'studenta';
 /** @var string Username for student B in the security fixture. */
 const SECURITY_STUDENT_B = 'studentb';
-/** @var string Password for security fixture student accounts. */
-const SECURITY_STUDENT_PASSWORD = 'Student123!';
 
 [$options, $unrecognised] = cli_get_params(
     [
         'help' => false,
         'quiet' => false,
         'force' => false,
+        'password' => false,
     ],
     [
         'h' => 'help',
@@ -71,8 +68,11 @@ Create separate-groups course for security authorization manual testing.
 
 Options:
   --force   Delete and recreate course if it already exists
+  --password=PW  Password for newly created accounts (default: random)
   --quiet   Suppress informational output
   -h, --help  Print this help
+
+Requires \$CFG->quiz_livequizmonitor_devtools = true; in config.php (development sites only).
 
 Example:
   php mod/quiz/report/livequizmonitor/cli/setup_security_test_data.php --force
@@ -81,8 +81,11 @@ EOF;
     exit(0);
 }
 
+demo_require_devtools();
+
 $quiet = !empty($options['quiet']);
 $force = !empty($options['force']);
+$password = demo_resolve_password($options['password']);
 
 manager::set_user(get_admin());
 
@@ -113,10 +116,15 @@ $course = $generator->create_course([
     'groupmodeforce' => 1,
 ]);
 
-$teacher = demo_get_user(SECURITY_TEACHER_USERNAME, SECURITY_TEACHER_PASSWORD);
-$teachernogroup = demo_get_user(SECURITY_TEACHER_NOGROUP_USERNAME, SECURITY_TEACHER_PASSWORD);
-$studenta = demo_get_user(SECURITY_STUDENT_A, SECURITY_STUDENT_PASSWORD);
-$studentb = demo_get_user(SECURITY_STUDENT_B, SECURITY_STUDENT_PASSWORD);
+$createdcount = 0;
+$teacher = demo_get_user(SECURITY_TEACHER_USERNAME, $password, $created);
+$createdcount += (int) $created;
+$teachernogroup = demo_get_user(SECURITY_TEACHER_NOGROUP_USERNAME, $password, $created);
+$createdcount += (int) $created;
+$studenta = demo_get_user(SECURITY_STUDENT_A, $password, $created);
+$createdcount += (int) $created;
+$studentb = demo_get_user(SECURITY_STUDENT_B, $password, $created);
+$createdcount += (int) $created;
 
 $generator->enrol_user($teacher->id, $course->id, 'editingteacher');
 $generator->enrol_user($teachernogroup->id, $course->id, 'editingteacher');
@@ -163,10 +171,10 @@ if (!$quiet) {
     mtrace('Security test data ready.');
     mtrace('Course:   ' . SECURITY_COURSE_SHORTNAME . ' (id ' . $course->id . ')');
     mtrace('Groups:   Group A (teacher + studenta), Group B (studentb)');
-    mtrace('Teacher:  ' . SECURITY_TEACHER_USERNAME . ' / ' . SECURITY_TEACHER_PASSWORD . ' (Group A only, no accessallgroups)');
-    mtrace('Teacher:  ' . SECURITY_TEACHER_NOGROUP_USERNAME . ' / ' . SECURITY_TEACHER_PASSWORD
-        . ' (no group, no accessallgroups)');
-    mtrace('Students: ' . SECURITY_STUDENT_A . ', ' . SECURITY_STUDENT_B . ' / ' . SECURITY_STUDENT_PASSWORD);
+    mtrace('Teacher:  ' . SECURITY_TEACHER_USERNAME . ' (Group A only, no accessallgroups)');
+    mtrace('Teacher:  ' . SECURITY_TEACHER_NOGROUP_USERNAME . ' (no group, no accessallgroups)');
+    mtrace('Students: ' . SECURITY_STUDENT_A . ' (Group A), ' . SECURITY_STUDENT_B . ' (Group B)');
+    demo_print_password($password, $createdcount, 4);
     mtrace('Quiz:     ' . SECURITY_QUIZ_NAME . ' (cmid ' . $cm->id . ')');
     mtrace('URLs:');
     mtrace('  ' . $courseurl);
