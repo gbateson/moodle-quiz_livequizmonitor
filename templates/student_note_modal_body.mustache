@@ -17,4 +17,7 @@
               maxlength="2000"
               data-region="note-content"
               aria-label="{{textareaaria}}">{{content}}</textarea>
+    <div class="alert alert-danger mt-3 mb-0 d-none" data-region="request-error" role="alert">
+        {{#str}} error:requestfailed, quiz_livequizmonitor {{/str}}
+    </div>
 </div>

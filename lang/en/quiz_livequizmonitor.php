@@ -29,6 +29,7 @@ $string['columns:hidecolumn'] = 'Hide {$a} column';
 $string['columns:showcolumn'] = 'Show {$a} column';
 $string['emptycohort'] = 'No eligible students were found for this quiz.';
 $string['error:groupnotvisible'] = 'You do not have permission to view that group in this monitor.';
+$string['error:requestfailed'] = 'The server could not be reached. Please check your connection and try again.';
 $string['error:usernotvisible'] = 'The selected student is not visible in this monitor view.';
 $string['extend:addtime'] = 'Add time';
 $string['extend:bulklabel'] = 'Extend time';
