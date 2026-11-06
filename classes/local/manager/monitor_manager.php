@@ -705,6 +705,22 @@ class monitor_manager {
 
         $hastimer = in_array($status, self::INPROGRESS_OR_IDLE) && $timeremaining !== null;
 
+        // End time: the deadline for an active attempt, or the actual finish time for a completed one.
+        // Not started, and no deadline, show a dash, like the Time left column.
+        $endat = null;
+        $endtimedisplay = '—';
+        if ($status === self::STATUS_COMPLETED && !empty($attempt->timefinish)) {
+            $endat = (int) $attempt->timefinish;
+            $endtimedisplay = self::format_end_time((int) $attempt->timestart, $endat);
+        } else if (in_array($status, self::INPROGRESS_OR_IDLE) && $attemptendat !== null) {
+            $endat = $attemptendat;
+            $graceperiod = 0;
+            if (($quiz->overduehandling ?? '') === 'graceperiod') {
+                $graceperiod = (int) ($quiz->graceperiod ?? 0);
+            }
+            $endtimedisplay = self::format_end_time((int) $attempt->timestart, $endat, $graceperiod);
+        }
+
         return (object) [
             'courseid' => (int) $quiz->course,
             'userid' => (int) $user->id,
@@ -726,6 +742,8 @@ class monitor_manager {
             'timeremainingdisplay' => $timeremainingdisplay,
             'searchtext' => self::build_searchtext($user, $showemail),
             'attemptendat' => $attemptendat,
+            'endtime' => $endat,
+            'endtimedisplay' => $endtimedisplay,
             'canextend' => $canextend,
             'hastimer' => $hastimer,
             'hasnote' => false,
@@ -788,6 +806,40 @@ class monitor_manager {
     }
 
     /**
+     * Format an attempt's end time for the End time column, e.g. "12:15".
+     *
+     * The time is shown in the current user's time zone. If the end time falls on a
+     * different day from the start of the attempt, the date is shown first, e.g.
+     * "06-Nov-2026 00:15". If there is a grace period, the end of the grace period
+     * is appended, e.g. "12:15 ~ 12:20".
+     *
+     * @param int $starttime Attempt start timestamp.
+     * @param int $endtime Attempt end timestamp.
+     * @param int $graceperiod Grace period in seconds, or 0 for none.
+     * @return string
+     */
+    public static function format_end_time(int $starttime, int $endtime, int $graceperiod = 0): string {
+        $timeformat = get_string('strftimetime24', 'langconfig');
+        $display = userdate($endtime, $timeformat);
+
+        // Compare calendar days in the user's time zone.
+        $dayformat = '%Y-%m-%d';
+        if (userdate($starttime, $dayformat, 99, false) !== userdate($endtime, $dayformat, 99, false)) {
+            $dateformat = get_string('endtime:dateformat', 'quiz_livequizmonitor');
+            $display = userdate($endtime, $dateformat, 99, false) . ' ' . $display;
+        }
+
+        if ($graceperiod > 0) {
+            $display = get_string('endtime:range', 'quiz_livequizmonitor', (object) [
+                'from' => $display,
+                'to' => userdate($endtime + $graceperiod, $timeformat),
+            ]);
+        }
+
+        return $display;
+    }
+
+    /**
      * Sort rows by the requested column and direction.
      *
      * @param array $rows Student rows (by reference).
@@ -805,6 +857,7 @@ class monitor_manager {
             'email' => 'email',
             'progress' => 'progresspercent',
             'timeremaining' => 'timeremaining',
+            'endtime' => 'endtime',
         ];
 
         // Sanity check on incoming values.
@@ -828,35 +881,35 @@ class monitor_manager {
         ): int {
             if ($sortcolumn === 'status') {
                 // Status uses defined rank rather than alphabetical order.
-                // The spaceship operator, <=>, works like strcmp for numbers.
-                $cmp = ($rank[$a->status] ?? 99) <=> ($rank[$b->status] ?? 99);
+                $valuea = $rank[$a->status] ?? 99;
+                $valueb = $rank[$b->status] ?? 99;
             } else {
                 $valuea = $a->{$sortcolumn} ?? null;
                 $valueb = $b->{$sortcolumn} ?? null;
-
-                if ($valuea === $valueb) {
-                    $cmp = 0;
-                } else if ($valuea === null) {
-                    $cmp = 1;
-                } else if ($valueb === null) {
-                    $cmp = -1;
-                } else if (is_numeric($valuea) && is_numeric($valueb)) {
-                    $cmp = $valuea <=> $valueb;
-                } else {
-                    $cmp = strcmp((string) $valuea, (string) $valueb);
-                }
             }
 
-            if ($sortdirection === 'desc') {
-                $cmp = -$cmp;
+            // Ties, including two students with no value, are sorted by name.
+            if ($valuea === $valueb) {
+                $valuea = $a->fullname;
+                $valueb = $b->fullname;
             }
 
-            // Name tie-break stays A→Z regardless of sort direction.
-            if ($cmp === 0) {
-                $cmp = strcmp($a->fullname, $b->fullname);
+            // Students with no value, e.g. no time left, always go last, whichever the sort direction.
+            if ($valuea === null) {
+                return 1;
+            }
+            if ($valueb === null) {
+                return -1;
             }
 
-            return $cmp;
+            if (is_numeric($valuea) && is_numeric($valueb)) {
+                // The spaceship operator, <=>, works like strcmp for numbers.
+                $cmp = $valuea <=> $valueb;
+            } else {
+                $cmp = strcmp((string) $valuea, (string) $valueb);
+            }
+
+            return $sortdirection === 'desc' ? -$cmp : $cmp;
         });
     }
 
