@@ -46,7 +46,7 @@ class get_monitor_state extends external_api {
         return new external_function_parameters([
             'cmid' => new external_value(PARAM_INT, 'Course module id of the quiz'),
             'groupid' => new external_value(PARAM_INT, 'Group id filter', VALUE_DEFAULT, 0),
-            'sortcolumn' => new external_value(PARAM_ALPHANUM, 'Sort column name', VALUE_DEFAULT, 'status'),
+            'sortcolumn' => new external_value(PARAM_ALPHANUMEXT, 'Sort column name', VALUE_DEFAULT, 'status'),
             'sortdirection' => new external_value(PARAM_ALPHA, 'Sort direction', VALUE_DEFAULT, 'asc'),
         ]);
     }
@@ -125,6 +125,15 @@ class get_monitor_state extends external_api {
             'lastinitial' => new external_value(PARAM_TEXT, 'Initial of last name'),
             'email' => new external_value(PARAM_TEXT, 'Email'),
             'showemail' => new external_value(PARAM_BOOL, 'Show email'),
+            'identity' => new external_multiple_structure(
+                new external_single_structure([
+                    'column' => new external_value(PARAM_ALPHANUMEXT, 'Column id, e.g. idnumber or profile_field_upi'),
+                    'value' => new external_value(PARAM_TEXT, 'Value to show'),
+                ]),
+                'Student details chosen in the site settings, in column order',
+                VALUE_DEFAULT,
+                []
+            ),
             'status' => new external_value(PARAM_ALPHA, 'Status'),
             'statuslabel' => new external_value(PARAM_TEXT, 'Status label'),
             'statusclass' => new external_value(PARAM_TEXT, 'Bootstrap badge CSS classes'),
@@ -177,7 +186,7 @@ class get_monitor_state extends external_api {
                 'completed' => $statuscount,
             ]),
             'students' => new external_multiple_structure($student),
-            'sortcolumn' => new external_value(PARAM_ALPHANUM, 'Sort column'),
+            'sortcolumn' => new external_value(PARAM_ALPHANUMEXT, 'Sort column'),
             'sortdirection' => new external_value(PARAM_ALPHA, 'Sort direction'),
         ]);
     }
@@ -208,6 +217,7 @@ class get_monitor_state extends external_api {
                 'progressbarclass' => $row->progressbarclass,
                 'timeremainingdisplay' => $row->timeremainingdisplay,
                 'hastimer' => (bool) $row->hastimer,
+                'identity' => $row->identity ?? [],
                 'searchtext' => $row->searchtext,
                 'canextend' => (bool) $row->canextend,
                 'hasnote' => (bool) ($row->hasnote ?? false),
