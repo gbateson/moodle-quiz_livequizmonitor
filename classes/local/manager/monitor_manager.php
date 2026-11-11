@@ -35,6 +35,7 @@ use core_user\fields;
 use mod_quiz\access_manager;
 use mod_quiz\quiz_attempt;
 use mod_quiz\quiz_settings;
+use quiz_livequizmonitor\local\column_helper;
 use stdClass;
 
 /**
@@ -150,11 +151,15 @@ class monitor_manager {
 
         // Resolve group for enrolment query (respect quiz report group mode).
         $groupid = supervision_scope_manager::resolve_group($groupid, $cm, $context);
+
+        // The student details (e.g. ID number, UPI) chosen in the site settings that this user may see.
+        $identityfields = column_helper::get_visible_identity_fields($context);
+
         if ($groupid === supervision_scope_manager::NO_GROUPS_ALLOWED) {
             $students = [];
         } else {
             // Get the student list, honouring the activity's access restrictions.
-            $students = self::get_allowed_students($cm, $context, $groupid);
+            $students = self::get_allowed_students($cm, $context, $groupid, 0, $identityfields);
         }
 
         $totalquestions = self::count_quiz_questions((int) $quiz->id);
@@ -202,7 +207,8 @@ class monitor_manager {
                 $quiz,
                 $now,
                 $showemail,
-                $canextend
+                $canextend,
+                $identityfields
             );
         }
 
@@ -329,13 +335,15 @@ class monitor_manager {
      * @param context_module $context Module context.
      * @param int $groupid Active group id (0 = all groups).
      * @param int $userid Optional single user to test, 0 for the whole roster.
+     * @param string[] $identityfields Extra user fields to load, e.g. ['department', 'profile_field_upi'].
      * @return array User records keyed by user id.
      */
     public static function get_allowed_students(
         cm_info|stdClass $cm,
         context_module $context,
         int $groupid,
-        int $userid = 0
+        int $userid = 0,
+        array $identityfields = []
     ): array {
         global $DB;
 
@@ -343,11 +351,15 @@ class monitor_manager {
 
         [$enrolledsql, $params] = get_enrolled_sql($context, 'mod/quiz:attempt', $groupid, $onlyactive);
 
-        $userfields = fields::for_name()->including('id', 'email', 'username', 'idnumber');
-        $fieldsql = $userfields->get_sql('u', false, '', '', false);
+        // The user id is already loaded as 'id'. Custom profile fields add joins, with named params.
+        $identityfields = array_diff($identityfields, ['userid']);
+        $userfields = fields::for_name()->including('id', 'email', 'username', 'idnumber', ...$identityfields);
+        $fieldsql = $userfields->get_sql('u', true, '', '', false);
+        $params = array_merge($params, $fieldsql->params);
         $sql = "SELECT {$fieldsql->selects}
                 FROM {user} u
                 JOIN ($enrolledsql) e ON e.id = u.id
+                {$fieldsql->joins}
                 WHERE u.deleted = 0";
 
         // Narrow to a single user when the caller only needs a membership test.
@@ -534,9 +546,10 @@ class monitor_manager {
      *
      * @param stdClass $user User record.
      * @param bool $showhidden Whether hidden identity fields may be included.
+     * @param string[] $identityvalues Values of the student details shown in the table, e.g. a UPI.
      * @return string
      */
-    public static function build_searchtext(stdClass $user, bool $showhidden): string {
+    public static function build_searchtext(stdClass $user, bool $showhidden, array $identityvalues = []): string {
         $parts = [\core_text::strtolower(fullname($user))];
 
         if ($showhidden) {
@@ -547,7 +560,36 @@ class monitor_manager {
             }
         }
 
-        return trim(implode(' ', $parts));
+        foreach ($identityvalues as $value) {
+            if ($value !== '') {
+                $parts[] = \core_text::strtolower($value);
+            }
+        }
+
+        return trim(implode(' ', array_unique($parts)));
+    }
+
+    /**
+     * Get the student details (identity fields) to show in a student's row.
+     *
+     * @param stdClass $user User record, from get_allowed_students().
+     * @param string[] $identityfields Field names, from column_helper::get_visible_identity_fields().
+     * @return array[] List of ['column' => field name, 'value' => text], in column order.
+     */
+    public static function get_identity_values(stdClass $user, array $identityfields): array {
+        $values = [];
+        foreach ($identityfields as $field) {
+            if ($field === 'userid') {
+                $value = (string) $user->id;
+            } else if ($field === 'country' && !empty($user->country)) {
+                // Show the country name, not its code.
+                $value = get_string_manager()->get_list_of_countries()[$user->country] ?? $user->country;
+            } else {
+                $value = (string) ($user->{$field} ?? '');
+            }
+            $values[] = ['column' => $field, 'value' => $value];
+        }
+        return $values;
     }
 
     /**
@@ -602,6 +644,7 @@ class monitor_manager {
      * @param int $now Current timestamp.
      * @param bool $showemail Whether email may be shown.
      * @param bool $canextend Whether the viewer may extend time.
+     * @param string[] $identityfields Student details to show, from column_helper::get_visible_identity_fields().
      * @return stdClass
      */
     protected static function build_student_row(
@@ -613,8 +656,10 @@ class monitor_manager {
         stdClass $quiz,
         int $now,
         bool $showemail,
-        bool $canextend
+        bool $canextend,
+        array $identityfields = []
     ): stdClass {
+        $identity = self::get_identity_values($user, $identityfields);
         $status = self::map_status($attempt);
         $statuslabel = self::status_label($status);
 
@@ -689,7 +734,8 @@ class monitor_manager {
             'progresstext' => $progresstext,
             'timeremaining' => $timeremaining,
             'timeremainingdisplay' => $timeremainingdisplay,
-            'searchtext' => self::build_searchtext($user, $showemail),
+            'identity' => $identity,
+            'searchtext' => self::build_searchtext($user, $showemail, array_column($identity, 'value')),
             'attemptendat' => $attemptendat,
             'canextend' => $canextend,
             'hastimer' => $hastimer,
@@ -767,13 +813,17 @@ class monitor_manager {
         $sortable = [
             'status' => 'status',
             'fullname' => 'fullname',
-            'email' => 'email',
             'progress' => 'progresspercent',
             'timeremaining' => 'timeremaining',
         ];
 
+        // Student details (e.g. 'email', 'profile_field_upi') sort by their value in the row's identity list.
+        // Every row has the same identity columns, so the first row says which they are.
+        $identitycolumns = $rows ? array_column(reset($rows)->identity ?? [], 'column') : [];
+        $identitycolumn = in_array($sortcolumn, $identitycolumns, true) ? $sortcolumn : null;
+
         // Sanity check on incoming values.
-        $sortcolumn = $sortable[$sortcolumn] ?? 'status';
+        $sortcolumn = $identitycolumn ?? $sortable[$sortcolumn] ?? 'status';
         $sortdirection = $sortdirection === 'desc' ? 'desc' : 'asc';
 
         $rank = [
@@ -789,15 +839,22 @@ class monitor_manager {
         ) use (
             $sortcolumn,
             $sortdirection,
-            $rank
+            $rank,
+            $identitycolumn
         ): int {
             if ($sortcolumn === 'status') {
                 // Status uses defined rank rather than alphabetical order.
                 // The spaceship operator, <=>, works like strcmp for numbers.
                 $cmp = ($rank[$a->status] ?? 99) <=> ($rank[$b->status] ?? 99);
             } else {
-                $valuea = $a->{$sortcolumn} ?? null;
-                $valueb = $b->{$sortcolumn} ?? null;
+                if ($identitycolumn !== null) {
+                    // An empty student detail sorts last, like a missing value.
+                    $valuea = self::get_identity_sort_value($a, $identitycolumn);
+                    $valueb = self::get_identity_sort_value($b, $identitycolumn);
+                } else {
+                    $valuea = $a->{$sortcolumn} ?? null;
+                    $valueb = $b->{$sortcolumn} ?? null;
+                }
 
                 if ($valuea === $valueb) {
                     $cmp = 0;
@@ -823,6 +880,22 @@ class monitor_manager {
 
             return $cmp;
         });
+    }
+
+    /**
+     * Get the value of a student detail in a row, for sorting.
+     *
+     * @param stdClass $row Student row.
+     * @param string $column Identity column, e.g. 'profile_field_upi'.
+     * @return string|null The value, or null if it is empty (so it sorts last).
+     */
+    protected static function get_identity_sort_value(stdClass $row, string $column): ?string {
+        foreach ($row->identity ?? [] as $item) {
+            if ($item['column'] === $column) {
+                return $item['value'] === '' ? null : $item['value'];
+            }
+        }
+        return null;
     }
 
     /**

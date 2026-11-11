@@ -41,6 +41,18 @@ import {showUnblockModal} from 'quiz_livequizmonitor/unblock_confirm_modal';
 const POLL_INTERVAL_MS = 5000;
 
 /**
+ * Get the value of a student detail (identity column) in a student row.
+ *
+ * @param {object} student Student state row
+ * @param {string} column Identity column id, e.g. 'idnumber' or 'profile_field_upi'
+ * @returns {string|null} The value, or null if the student has none (so it sorts last)
+ */
+const getIdentityValue = (student, column) => {
+    const item = (student.identity ?? []).find((identity) => identity.column === column);
+    return (item && item.value !== '') ? item.value : null;
+};
+
+/**
  * Reactive component that syncs monitor state to the page DOM.
  */
 class MonitorComponent extends BaseComponent {
@@ -111,7 +123,8 @@ class MonitorComponent extends BaseComponent {
         this.cmid = parseInt(descriptor.cmid ?? root.dataset.cmid ?? 0, 10);
         this.groupid = parseInt(descriptor.groupid ?? root.dataset.groupid ?? 0, 10);
         this.courseId = parseInt(descriptor.courseid ?? root.dataset.courseid ?? 1, 10);
-        this.showEmailColumn = root.dataset.showEmail === '1';
+        // Column ids chosen in the site settings, including the student details this user may see.
+        this.columnIds = JSON.parse(root.dataset.columns || '[]');
         this.showActionsColumn = root.dataset.showActions === '1';
         this.lastUpdatedPrefix = root.dataset.lastupdatedPrefix ?? '';
         this.canextend = root.dataset.canextend === '1';
@@ -813,12 +826,14 @@ class MonitorComponent extends BaseComponent {
         const sortable = {
             status: 'status',
             fullname: 'fullname',
-            email: 'email',
             progress: 'progresspercent',
             timeremaining: 'timeremaining',
         };
 
-        const field = sortable[sortcolumn] ?? 'status';
+        // Student details (e.g. 'idnumber') sort by their value in each row's identity list.
+        const identitycolumn = rows.some((row) => (row.identity ?? []).some((item) => item.column === sortcolumn))
+            ? sortcolumn : null;
+        const field = identitycolumn ? 'identity' : (sortable[sortcolumn] ?? 'status');
 
         const statusRank = {
             inprogress: 0,
@@ -833,8 +848,8 @@ class MonitorComponent extends BaseComponent {
             if (field === 'status') {
                 cmp = (statusRank[a.status] ?? 99) - (statusRank[b.status] ?? 99);
             } else {
-                const valuea = a[field] ?? null;
-                const valueb = b[field] ?? null;
+                const valuea = identitycolumn ? getIdentityValue(a, identitycolumn) : (a[field] ?? null);
+                const valueb = identitycolumn ? getIdentityValue(b, identitycolumn) : (b[field] ?? null);
 
                 if (valuea === valueb) {
                     cmp = 0;
@@ -884,10 +899,6 @@ class MonitorComponent extends BaseComponent {
         }
         this.showActionsColumn = true;
         this.element.dataset.showActions = '1';
-        if (students[0].showemail) {
-            this.showEmailColumn = true;
-            this.element.dataset.showEmail = '1';
-        }
     }
 
     /**
@@ -914,7 +925,9 @@ class MonitorComponent extends BaseComponent {
             hastimer: !!student.hastimer,
             timeremaining: student.timeremaining,
             timeremainingdisplay: student.timeremainingdisplay || formatDuration(student.timeremaining ?? 0),
-            showemailcolumn: this.showEmailColumn || !!student.showemail,
+            identity: student.identity ?? [],
+            showprogresscolumn: this.columnIds.includes('progress'),
+            showtimeremainingcolumn: this.columnIds.includes('timeremaining'),
             showactionscolumn: this.showActionsColumn,
             canextend,
             extendactionenabled: canextend && this.isExtendActionEnabled(student),
@@ -1119,6 +1132,12 @@ class MonitorComponent extends BaseComponent {
                 timer.textContent = '—';
             }
         }
+        (student.identity ?? []).forEach((item) => {
+            const content = row.querySelector(`[data-identity="${item.column}"] [data-colcontent]`);
+            if (content && content.textContent !== item.value) {
+                content.textContent = item.value;
+            }
+        });
         this.updateOverrideFlag(row, student);
         this.updateTimeOverrideFlag(row, student);
         this.updateNoteFlag(row, student);

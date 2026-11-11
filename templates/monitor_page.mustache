@@ -7,7 +7,7 @@
     {
         "cmid": 10,
         "groupid": 0,
-        "showemailcolumn": true,
+        "columnsjson": "[\"status\",\"student\",\"email\",\"progress\",\"timeremaining\",\"actions\"]",
         "showactionscolumn": true,
         "lastupdatedprefix": "Last updated:",
         "extendrowlabel": "Extend time",
@@ -80,7 +80,7 @@
      data-cmid="{{cmid}}"
      data-groupid="{{groupid}}"
      data-courseid="{{courseid}}"
-     data-show-email="{{#showemailcolumn}}1{{/showemailcolumn}}{{^showemailcolumn}}0{{/showemailcolumn}}"
+     data-columns="{{columnsjson}}"
      data-show-actions="{{#showactionscolumn}}1{{/showactionscolumn}}{{^showactionscolumn}}0{{/showactionscolumn}}"
      data-lastupdated-prefix="{{lastupdatedprefix}}"
      data-sort-ascending="{{sortascending}}"

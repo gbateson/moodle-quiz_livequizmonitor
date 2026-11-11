@@ -42,6 +42,15 @@ After installing the plugin, it is ready to use without the need for any configu
 
 The report shows the current activity (and selected group, if group mode is used) and refreshes as students progress.
 
+### Choosing the columns
+
+Site admins can choose which columns the monitor shows, in *Site administration > Plugins > Activity modules > Quiz > Live monitor*:
+
+- **Student details to show**: for example ID number, email, department, or a custom profile field such as a student number. Each detail gets its own column after the student's name, and students can be found by searching for it. As in other Moodle reports, only users who can view user identity (`moodle/site:viewuseridentity`) see these details.
+- **Attempt details to show**: progress and time left.
+
+By default the monitor shows email, progress and time left. Each user can still hide or show any column except Status and Actions.
+
 If you want to learn more about using quiz report plugins in Moodle, please see https://docs.moodle.org/en/Quiz_reports.
 
 

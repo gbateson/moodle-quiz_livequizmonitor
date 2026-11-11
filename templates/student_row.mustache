@@ -9,8 +9,13 @@
         "statusclass": "badge-info",
         "statuslabel": "In progress",
         "fullname": "Jane Student",
-        "showemailcolumn": true,
         "email": "jane@example.com",
+        "identity": [
+            {"column": "idnumber", "value": "12345678"},
+            {"column": "profile_field_upi", "value": "JSTUD01"}
+        ],
+        "showprogresscolumn": true,
+        "showtimeremainingcolumn": true,
         "progresspercent": 50,
         "progresstext": "5 / 10",
         "progressbarclass": "bg-info",
@@ -69,9 +74,10 @@
             {{/hasgroupoverride}}
         </span>
     </td>
-    {{#showemailcolumn}}
-    <td data-column="email"><span data-colcontent="email">{{email}}</span></td>
-    {{/showemailcolumn}}
+    {{#identity}}
+    <td data-column="{{column}}" data-identity="{{column}}"><span data-colcontent="{{column}}">{{value}}</span></td>
+    {{/identity}}
+    {{#showprogresscolumn}}
     <td data-column="progress" data-field="progress">
         <div data-colcontent="progress">
             <div class="livequizmonitor-progress">
@@ -86,6 +92,8 @@
             </div>
         </div>
     </td>
+    {{/showprogresscolumn}}
+    {{#showtimeremainingcolumn}}
     <td data-column="timeremaining" data-field="timeremaining">
         {{#hastimer}}
         <span class="livequizmonitor-timer" data-field="timer" data-colcontent="timeremaining"
@@ -100,6 +108,7 @@
            aria-label="{{timeoverrideflaglabel}}"></i>
         {{/hastimeoverride}}
     </td>
+    {{/showtimeremainingcolumn}}
     {{#showactionscolumn}}
     <td class="livequizmonitor-actions" data-column="actions" data-field="actions">
         <div class="livequizmonitor-actions-inner">
