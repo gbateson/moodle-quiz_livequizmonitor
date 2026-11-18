@@ -37,23 +37,173 @@ class column_helper {
     /** @var string Name of the user preference that stores hidden column ids. */
     const PREFERENCE_NAME = 'quiz_livequizmonitor_hiddencolumns';
 
+    /** @var string Setting: the student details to show, chosen from the user id and the "Show user identity" fields. */
+    const SETTING_IDENTITYCOLUMNS = 'identitycolumns';
+
+    /** @var string Setting: the optional attempt columns to show. */
+    const SETTING_ATTEMPTCOLUMNS = 'attemptcolumns';
+
+    /** @var string[] Attempt columns shown if the setting has not been saved (as before the setting existed). */
+    const DEFAULT_ATTEMPTCOLUMNS = ['progress', 'timeremaining'];
+
     /**
-     * Ordered registry of columns known to the monitor table.
+     * Ordered registry of the columns the current user sees in the monitor table.
+     *
+     * The site admin chooses the student details (from the user id and Moodle's
+     * "Show user identity" fields) and the attempt columns in settings.php.
+     * Student details that the current user may not see are left out.
      *
      * 'locked' columns (status, actions) can never be hidden by the user,
      * matching the always-visible columns used by other quiz reports.
      *
-     * @return array<string, array{langkey: string, locked: bool}> Column id => definition.
+     * @param \context $context Context to check the current user's access to student details in.
+     * @return array<string, array{label: string, locked: bool, identity: bool}> Column id => definition.
      */
-    public static function get_columns(): array {
-        return [
-            'status' => ['langkey' => 'table:status', 'locked' => true],
-            'student' => ['langkey' => 'table:student', 'locked' => false],
-            'email' => ['langkey' => 'table:email', 'locked' => false],
-            'progress' => ['langkey' => 'table:progress', 'locked' => false],
-            'timeremaining' => ['langkey' => 'table:timeremaining', 'locked' => false],
-            'actions' => ['langkey' => 'table:actions', 'locked' => true],
+    public static function get_columns(\context $context): array {
+        return self::build_columns(self::get_visible_identity_fields($context));
+    }
+
+    /**
+     * Ordered registry of all the columns that may appear, without checking
+     * who may see the student details.
+     *
+     * Only for checking a user's saved hide/show preference, which isn't tied to
+     * a quiz. To show columns, use get_columns(), which checks access.
+     *
+     * @return array<string, array{label: string, locked: bool, identity: bool}> Column id => definition.
+     */
+    public static function get_chosen_columns(): array {
+        return self::build_columns(self::get_chosen_identity_fields());
+    }
+
+    /**
+     * Build the ordered column registry: status, student, student details,
+     * attempt columns, then actions.
+     *
+     * @param string[] $identityfields Student details to include, e.g. ['idnumber', 'profile_field_upi'].
+     * @return array<string, array{label: string, locked: bool, identity: bool}> Column id => definition.
+     */
+    protected static function build_columns(array $identityfields): array {
+        $component = 'quiz_livequizmonitor';
+        $columns = [
+            'status' => ['label' => get_string('table:status', $component), 'locked' => true, 'identity' => false],
+            'student' => ['label' => get_string('table:student', $component), 'locked' => false, 'identity' => false],
         ];
+
+        foreach ($identityfields as $field) {
+            $columns[$field] = ['label' => self::get_identity_label($field), 'locked' => false, 'identity' => true];
+        }
+
+        $choices = self::get_attempt_column_choices();
+        foreach (self::get_enabled_attempt_columns() as $columnid) {
+            $columns[$columnid] = ['label' => $choices[$columnid], 'locked' => false, 'identity' => false];
+        }
+
+        $columns['actions'] = ['label' => get_string('table:actions', $component), 'locked' => true, 'identity' => false];
+        return $columns;
+    }
+
+    /**
+     * Get the column header for a student detail.
+     *
+     * Moodle's own name for the field (e.g. 'ID number', or a profile field's name),
+     * except the user id, which isn't an identity field in Moodle, and email, which
+     * keeps the monitor's shorter "Email".
+     *
+     * @param string $field Field name, e.g. 'idnumber' or 'profile_field_upi'.
+     * @return string
+     */
+    protected static function get_identity_label(string $field): string {
+        if ($field === 'userid') {
+            return get_string('table:userid', 'quiz_livequizmonitor');
+        }
+        if ($field === 'email') {
+            return get_string('table:email', 'quiz_livequizmonitor');
+        }
+        return \core_user\fields::get_display_name($field);
+    }
+
+    /**
+     * The optional attempt columns the site admin can choose from.
+     *
+     * @return array<string, string> Column id => label.
+     */
+    public static function get_attempt_column_choices(): array {
+        return [
+            'progress' => get_string('table:progress', 'quiz_livequizmonitor'),
+            'timeremaining' => get_string('table:timeremaining', 'quiz_livequizmonitor'),
+        ];
+    }
+
+    /**
+     * The attempt columns the site admin chose to show.
+     *
+     * @return string[] Column ids, in table order.
+     */
+    public static function get_enabled_attempt_columns(): array {
+        $value = get_config('quiz_livequizmonitor', self::SETTING_ATTEMPTCOLUMNS);
+        $enabled = ($value === false) ? self::DEFAULT_ATTEMPTCOLUMNS : explode(',', (string) $value);
+        return array_values(array_intersect(array_keys(self::get_attempt_column_choices()), $enabled));
+    }
+
+    /**
+     * The student details the site admin can choose from: the user id, and the fields
+     * in Moodle's "Show user identity" setting
+     * (Site administration > Users > Permissions > User policies > Show user identity).
+     *
+     * To offer more fields, add them to "Show user identity".
+     *
+     * @return array<string, string> Field name => label, e.g. 'profile_field_upi' => 'UPI'.
+     */
+    public static function get_identity_column_choices(): array {
+        $choices = ['userid' => self::get_identity_label('userid')];
+        foreach (\core_user\fields::get_identity_fields(null) as $field) {
+            $choices[$field] = self::get_identity_label($field);
+        }
+        return $choices;
+    }
+
+    /**
+     * The student details shown if the setting has never been saved: all the
+     * "Show user identity" fields (as other Moodle reports show), but not the user id.
+     *
+     * @return string[] Field names.
+     */
+    public static function get_default_identity_columns(): array {
+        return \core_user\fields::get_identity_fields(null);
+    }
+
+    /**
+     * The student details that the site admin chose to show, without checking who may see them.
+     *
+     * Fields that are no longer in "Show user identity" are left out, even if they were chosen.
+     * To show student details, use get_visible_identity_fields(), which checks access.
+     *
+     * @return string[] Field names, in the order of the choices, e.g. ['userid', 'idnumber'].
+     */
+    public static function get_chosen_identity_fields(): array {
+        $value = get_config('quiz_livequizmonitor', self::SETTING_IDENTITYCOLUMNS);
+        $chosen = ($value === false) ? self::get_default_identity_columns() : explode(',', (string) $value);
+        return array_values(array_intersect(array_keys(self::get_identity_column_choices()), $chosen));
+    }
+
+    /**
+     * The student details that the site admin chose to show, and that the
+     * current user may see in the given context.
+     *
+     * Access to the "Show user identity" fields is decided by
+     * \core_user\fields::get_identity_fields(), which applies Moodle's access rules.
+     * The user id follows the same main rule: it needs moodle/site:viewuseridentity.
+     *
+     * @param \context $context Context to check access in.
+     * @return string[] Field names, e.g. ['userid', 'idnumber', 'profile_field_upi'].
+     */
+    public static function get_visible_identity_fields(\context $context): array {
+        $allowed = \core_user\fields::get_identity_fields($context);
+        if (has_capability('moodle/site:viewuseridentity', $context)) {
+            $allowed[] = 'userid';
+        }
+        return array_values(array_intersect(self::get_chosen_identity_fields(), $allowed));
     }
 
     /**
@@ -62,7 +212,7 @@ class column_helper {
      * @return string[]
      */
     public static function get_toggleable_column_ids(): array {
-        return array_keys(array_filter(self::get_columns(), function (array $column): bool {
+        return array_keys(array_filter(self::get_chosen_columns(), function (array $column): bool {
             return empty($column['locked']);
         }));
     }

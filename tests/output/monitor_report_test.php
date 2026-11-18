@@ -173,7 +173,7 @@ final class monitor_report_test extends advanced_testcase {
     }
 
     /**
-     * An empty cohort exports no students and hides the email column.
+     * An empty cohort exports no students, but still has the columns chosen in the site settings.
      */
     public function test_export_without_students(): void {
         $this->resetAfterTest();
@@ -186,7 +186,8 @@ final class monitor_report_test extends advanced_testcase {
 
         $this->assertSame([], $context['students']);
         $this->assertFalse($context['hasstudents']);
-        $this->assertFalse($context['showemailcolumn']);
+        $expected = ['status', 'student', 'email', 'progress', 'timeremaining', 'actions'];
+        $this->assertSame($expected, json_decode($context['columnsjson']));
     }
 
     /**

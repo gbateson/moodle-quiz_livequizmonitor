@@ -110,6 +110,10 @@ $string['privacy:metadata:notes:usermodified'] = 'Die Person, die die Notiz zule
 $string['privacy:metadata:preference:hiddencolumns'] = 'Die Tabellenspalten des Live-Monitors, die Sie ausgeblendet haben.';
 $string['privacy:metadata:preference:hiddencolumns_desc'] = 'Ausgeblendete Spalten des Live-Monitors: {$a}';
 $string['progressanswered'] = '{$a->answered} von {$a->total} beantwortet';
+$string['settings:attemptcolumns'] = 'Anzuzeigende Versuchsdetails';
+$string['settings:attemptcolumns_desc'] = 'Die Spalten zum Versuch der Teilnehmenden, die im Live-Quiz-Monitor angezeigt werden.';
+$string['settings:identitycolumns'] = 'Anzuzeigende Teilnehmendendaten';
+$string['settings:identitycolumns_desc'] = 'Die Teilnehmendendaten, die im Live-Quiz-Monitor jeweils in einer eigenen Spalte nach dem Namen angezeigt werden. Sie können sortiert und ausgeblendet werden, und Teilnehmende können über sie gesucht werden. Zur Auswahl stehen die Nutzer-ID und die Felder aus Moodles Einstellung <a href="{$a}">Nutzeridentität anzeigen</a>; weitere Felder können dort hinzugefügt werden. Wie in anderen Moodle-Berichten regeln die üblichen Moodle-Regeln, wer sie sehen darf.';
 $string['showpassword:label'] = 'Quiz-Passwort anzeigen';
 $string['showpassword:modaltitle'] = 'Quiz-Passwort';
 $string['sortby'] = 'Sortieren nach {$a}';
@@ -128,4 +132,5 @@ $string['table:progress'] = 'Fortschritt';
 $string['table:status'] = 'Status';
 $string['table:student'] = 'Teilnehmende';
 $string['table:timeremaining'] = 'Verbleibende Zeit';
+$string['table:userid'] = 'Nutzer-ID';
 $string['timeup'] = 'Zeit abgelaufen';
