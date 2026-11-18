@@ -123,8 +123,6 @@ class get_monitor_state extends external_api {
             'fullname' => new external_value(PARAM_TEXT, 'Full name'),
             'firstinitial' => new external_value(PARAM_TEXT, 'Initial of first name'),
             'lastinitial' => new external_value(PARAM_TEXT, 'Initial of last name'),
-            'email' => new external_value(PARAM_TEXT, 'Email'),
-            'showemail' => new external_value(PARAM_BOOL, 'Show email'),
             'identity' => new external_multiple_structure(
                 new external_single_structure([
                     'column' => new external_value(PARAM_ALPHANUMEXT, 'Column id, e.g. idnumber or profile_field_upi'),
@@ -205,8 +203,6 @@ class get_monitor_state extends external_api {
                 'fullname' => $row->fullname,
                 'firstinitial' => $row->firstinitial,
                 'lastinitial' => $row->lastinitial,
-                'email' => $row->email,
-                'showemail' => (bool) $row->showemail,
                 'status' => $row->status,
                 'statuslabel' => $row->statuslabel,
                 'statusclass' => $row->statusclass,

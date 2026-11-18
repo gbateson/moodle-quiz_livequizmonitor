@@ -48,8 +48,13 @@ const POLL_INTERVAL_MS = 5000;
  * @returns {string|null} The value, or null if the student has none (so it sorts last)
  */
 const getIdentityValue = (student, column) => {
-    const item = (student.identity ?? []).find((identity) => identity.column === column);
-    return (item && item.value !== '') ? item.value : null;
+    for (const item of (student.identity ?? [])) {
+        if (item.column === column) {
+            // An empty value counts as no value, so the student sorts last.
+            return (item.value === '') ? null : item.value;
+        }
+    }
+    return null;
 };
 
 /**
@@ -831,8 +836,16 @@ class MonitorComponent extends BaseComponent {
         };
 
         // Student details (e.g. 'idnumber') sort by their value in each row's identity list.
-        const identitycolumn = rows.some((row) => (row.identity ?? []).some((item) => item.column === sortcolumn))
-            ? sortcolumn : null;
+        // Every row has the same identity columns (with different values), so the first row
+        // is enough to tell whether the sort column is one of them.
+        let identitycolumn = null;
+        const firstrow = (rows.length > 0) ? rows[0] : {};
+        for (const item of (firstrow.identity ?? [])) {
+            if (item.column === sortcolumn) {
+                identitycolumn = sortcolumn;
+                break;
+            }
+        }
         const field = identitycolumn ? 'identity' : (sortable[sortcolumn] ?? 'status');
 
         const statusRank = {
@@ -916,7 +929,6 @@ class MonitorComponent extends BaseComponent {
             fullname: student.fullname,
             firstinitial: student.firstinitial,
             lastinitial: student.lastinitial,
-            email: student.email ?? '',
             statusclass: student.statusclass ?? '',
             statuslabel: student.statuslabel ?? '',
             progresspercent: student.progresspercent ?? 0,

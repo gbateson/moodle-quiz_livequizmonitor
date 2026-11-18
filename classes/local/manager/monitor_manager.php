@@ -163,7 +163,6 @@ class monitor_manager {
         }
 
         $totalquestions = self::count_quiz_questions((int) $quiz->id);
-        $showemail = has_capability('moodle/course:viewhiddenuserfields', $context);
 
         // Load all non-preview attempts for this quiz, newest first per user scan.
         $attempts = $DB->get_records_select(
@@ -206,7 +205,6 @@ class monitor_manager {
                 $totalquestions,
                 $quiz,
                 $now,
-                $showemail,
                 $canextend,
                 $identityfields
             );
@@ -351,9 +349,10 @@ class monitor_manager {
 
         [$enrolledsql, $params] = get_enrolled_sql($context, 'mod/quiz:attempt', $groupid, $onlyactive);
 
-        // The user id is already loaded as 'id'. Custom profile fields add joins, with named params.
+        // The name fields, and the student details to show. The user id is already loaded as 'id'.
+        // Custom profile fields add joins, with named params.
         $identityfields = array_diff($identityfields, ['userid']);
-        $userfields = fields::for_name()->including('id', 'email', 'username', 'idnumber', ...$identityfields);
+        $userfields = fields::for_name()->including('id', ...$identityfields);
         $fieldsql = $userfields->get_sql('u', true, '', '', false);
         $params = array_merge($params, $fieldsql->params);
         $sql = "SELECT {$fieldsql->selects}
@@ -542,23 +541,17 @@ class monitor_manager {
     }
 
     /**
-     * Build lowercase search haystack from fields the viewer may search.
+     * Build the lowercase text that the search box looks in for a student.
+     *
+     * Only the student's name and the student details shown to the viewer are
+     * included, so searching can't find a student by a value the viewer can't see.
      *
      * @param stdClass $user User record.
-     * @param bool $showhidden Whether hidden identity fields may be included.
-     * @param string[] $identityvalues Values of the student details shown in the table, e.g. a UPI.
+     * @param string[] $identityvalues Values of the student details shown to the viewer, e.g. an ID number.
      * @return string
      */
-    public static function build_searchtext(stdClass $user, bool $showhidden, array $identityvalues = []): string {
+    public static function build_searchtext(stdClass $user, array $identityvalues = []): string {
         $parts = [\core_text::strtolower(fullname($user))];
-
-        if ($showhidden) {
-            foreach (['email', 'username', 'idnumber'] as $field) {
-                if (!empty($user->{$field})) {
-                    $parts[] = \core_text::strtolower($user->{$field});
-                }
-            }
-        }
 
         foreach ($identityvalues as $value) {
             if ($value !== '') {
@@ -642,7 +635,6 @@ class monitor_manager {
      * @param int $totalquestions Total quiz questions.
      * @param stdClass $quiz Quiz record.
      * @param int $now Current timestamp.
-     * @param bool $showemail Whether email may be shown.
      * @param bool $canextend Whether the viewer may extend time.
      * @param string[] $identityfields Student details to show, from column_helper::get_visible_identity_fields().
      * @return stdClass
@@ -655,7 +647,6 @@ class monitor_manager {
         int $totalquestions,
         stdClass $quiz,
         int $now,
-        bool $showemail,
         bool $canextend,
         array $identityfields = []
     ): stdClass {
@@ -721,8 +712,6 @@ class monitor_manager {
             'fullname' => fullname($user),
             'firstinitial' => \core_text::strtoupper(\core_text::substr($user->firstname, 0, 1)),
             'lastinitial' => \core_text::strtoupper(\core_text::substr($user->lastname, 0, 1)),
-            'email' => $showemail ? $user->email : '',
-            'showemail' => $showemail,
             'status' => $status,
             'statuslabel' => $statuslabel,
             'statusclass' => $presentation['badgeclass'],
@@ -735,7 +724,7 @@ class monitor_manager {
             'timeremaining' => $timeremaining,
             'timeremainingdisplay' => $timeremainingdisplay,
             'identity' => $identity,
-            'searchtext' => self::build_searchtext($user, $showemail, array_column($identity, 'value')),
+            'searchtext' => self::build_searchtext($user, array_column($identity, 'value')),
             'attemptendat' => $attemptendat,
             'canextend' => $canextend,
             'hastimer' => $hastimer,
@@ -818,7 +807,8 @@ class monitor_manager {
         ];
 
         // Student details (e.g. 'email', 'profile_field_upi') sort by their value in the row's identity list.
-        // Every row has the same identity columns, so the first row says which they are.
+        // Every row has the same identity columns (with different values), so the first row
+        // is enough to tell whether the sort column is one of them.
         $identitycolumns = $rows ? array_column(reset($rows)->identity ?? [], 'column') : [];
         $identitycolumn = in_array($sortcolumn, $identitycolumns, true) ? $sortcolumn : null;
 

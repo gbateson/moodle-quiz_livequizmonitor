@@ -20,7 +20,11 @@ use advanced_testcase;
 use context_module;
 
 /**
- * Tests for the site settings that choose the monitor's columns.
+ * Tests for the settings that choose the monitor's columns.
+ *
+ * The site admin chooses the identity fields from the user id and the fields in Moodle's
+ * "Show user identity" setting ($CFG->showuseridentity). Access to those fields is decided by
+ * \core_user\fields::get_identity_fields(), which applies Moodle's access rules.
  *
  * @package   quiz_livequizmonitor
  * @copyright 2026 SSYSTEMS
@@ -42,10 +46,24 @@ final class column_helper_settings_test extends advanced_testcase {
     }
 
     /**
-     * Without saved settings, the table has the same columns as before the settings existed.
+     * Stop editing teachers having a capability in a course.
+     *
+     * @param string $capability
+     * @param \stdClass $course
+     */
+    private function prohibit_for_teachers(string $capability, \stdClass $course): void {
+        $teacherrole = get_archetype_roles('editingteacher');
+        assign_capability($capability, CAP_PROHIBIT, reset($teacherrole)->id, \context_course::instance($course->id));
+    }
+
+    /**
+     * With Moodle's default "Show user identity" (email) and no saved settings,
+     * the table has the same columns as before the settings existed.
      */
     public function test_default_columns(): void {
+        global $CFG;
         $this->resetAfterTest();
+        $CFG->showuseridentity = 'email';
         [$context] = $this->setup_teacher();
 
         $expected = ['status', 'student', 'email', 'progress', 'timeremaining', 'actions'];
@@ -53,59 +71,80 @@ final class column_helper_settings_test extends advanced_testcase {
     }
 
     /**
-     * The table has the columns chosen in the site settings, with student details after the name.
+     * The admin can choose the user id, and any of the fields in "Show user identity".
+     */
+    public function test_identity_column_choices(): void {
+        global $CFG;
+        $this->resetAfterTest();
+        $this->getDataGenerator()->create_custom_profile_field([
+            'datatype' => 'text', 'shortname' => 'upi', 'name' => 'UPI', 'param2' => 50,
+        ]);
+        $CFG->showuseridentity = 'idnumber,email,profile_field_upi';
+
+        $choices = column_helper::get_identity_column_choices();
+
+        $this->assertSame(['userid', 'idnumber', 'email', 'profile_field_upi'], array_keys($choices));
+        $this->assertSame('UPI', $choices['profile_field_upi']);
+    }
+
+    /**
+     * The chosen identity fields appear after the name, with the user id first.
+     * Fields in "Show user identity" that weren't chosen don't appear.
+     * The attempt columns follow their own setting.
      */
     public function test_columns_follow_settings(): void {
+        global $CFG;
         $this->resetAfterTest();
-        $this->getDataGenerator()->create_custom_profile_field(['datatype' => 'text', 'shortname' => 'upi', 'name' => 'UPI']);
-        set_config('identityfields', 'userid,idnumber,department,profile_field_upi', 'quiz_livequizmonitor');
+        $this->getDataGenerator()->create_custom_profile_field([
+            'datatype' => 'text', 'shortname' => 'upi', 'name' => 'UPI', 'param2' => 50,
+        ]);
+        $CFG->showuseridentity = 'idnumber,department,email,profile_field_upi';
+        set_config('identitycolumns', 'userid,idnumber,profile_field_upi', 'quiz_livequizmonitor');
         set_config('attemptcolumns', 'progress', 'quiz_livequizmonitor');
         [$context] = $this->setup_teacher();
 
         $columns = column_helper::get_columns($context);
 
-        $expected = ['status', 'student', 'userid', 'idnumber', 'department', 'profile_field_upi', 'progress', 'actions'];
+        // Department and email are in "Show user identity", but weren't chosen for the monitor.
+        $expected = ['status', 'student', 'userid', 'idnumber', 'profile_field_upi', 'progress', 'actions'];
         $this->assertSame($expected, array_keys($columns));
-        $this->assertSame('UPI', $columns['profile_field_upi']['label']);
+
+        // Headers: Moodle's names for the fields (a profile field's own name), and "User ID".
         $this->assertSame('User ID', $columns['userid']['label']);
+        $this->assertSame(get_string('idnumber'), $columns['idnumber']['label']);
+        $this->assertSame('UPI', $columns['profile_field_upi']['label']);
+
+        // The 'identity' flag is true for identity field columns (e.g. UPI), and false for the others.
         $this->assertTrue($columns['profile_field_upi']['identity']);
         $this->assertFalse($columns['progress']['identity']);
     }
 
     /**
-     * The admin can choose user id, the standard identity fields, and text profile fields.
+     * A chosen field that is no longer in "Show user identity" isn't shown.
      */
-    public function test_identity_field_choices(): void {
+    public function test_field_removed_from_show_user_identity_is_not_shown(): void {
+        global $CFG;
         $this->resetAfterTest();
-        $generator = $this->getDataGenerator();
-        $generator->create_custom_profile_field(['datatype' => 'text', 'shortname' => 'upi', 'name' => 'UPI']);
-        $generator->create_custom_profile_field(['datatype' => 'textarea', 'shortname' => 'bio', 'name' => 'Biography']);
+        set_config('identitycolumns', 'idnumber,department', 'quiz_livequizmonitor');
+        $CFG->showuseridentity = 'idnumber';
+        [$context] = $this->setup_teacher();
 
-        $choices = column_helper::get_identity_field_choices();
-
-        foreach (['userid', 'username', 'idnumber', 'email', 'department', 'profile_field_upi'] as $field) {
-            $this->assertArrayHasKey($field, $choices);
-        }
-        // Other kinds of profile field, such as text areas, can't be used.
-        $this->assertArrayNotHasKey('profile_field_bio', $choices);
+        $this->assertSame(['idnumber'], column_helper::get_chosen_identity_fields());
+        $this->assertSame(['idnumber'], column_helper::get_visible_identity_fields($context));
     }
 
     /**
-     * Student details need moodle/site:viewuseridentity.
+     * Identity fields, including the user id, need moodle/site:viewuseridentity.
      */
-    public function test_student_details_need_viewuseridentity(): void {
+    public function test_identity_fields_need_viewuseridentity(): void {
+        global $CFG;
         $this->resetAfterTest();
-        set_config('identityfields', 'idnumber,email', 'quiz_livequizmonitor');
+        $CFG->showuseridentity = 'idnumber,email';
+        set_config('identitycolumns', 'userid,idnumber,email', 'quiz_livequizmonitor');
         [$context, , $course] = $this->setup_teacher();
-        $this->assertSame(['idnumber', 'email'], column_helper::get_visible_identity_fields($context));
+        $this->assertSame(['userid', 'idnumber', 'email'], column_helper::get_visible_identity_fields($context));
 
-        $teacherrole = get_archetype_roles('editingteacher');
-        assign_capability(
-            'moodle/site:viewuseridentity',
-            CAP_PROHIBIT,
-            reset($teacherrole)->id,
-            \context_course::instance($course->id)
-        );
+        $this->prohibit_for_teachers('moodle/site:viewuseridentity', $course);
 
         $this->assertSame([], column_helper::get_visible_identity_fields($context));
         $this->assertSame(
@@ -115,69 +154,19 @@ final class column_helper_settings_test extends advanced_testcase {
     }
 
     /**
-     * Fields listed in "Hide user fields" also need moodle/course:viewhiddenuserfields.
+     * Users can hide or show any of the columns, except Status and Actions.
      */
-    public function test_hidden_user_fields_need_viewhiddenuserfields(): void {
+    public function test_columns_can_be_hidden(): void {
         global $CFG;
         $this->resetAfterTest();
-        set_config('identityfields', 'idnumber,department', 'quiz_livequizmonitor');
-        $CFG->hiddenuserfields = 'department';
-        [$context, , $course] = $this->setup_teacher();
-        $this->assertSame(['idnumber', 'department'], column_helper::get_visible_identity_fields($context));
-
-        $teacherrole = get_archetype_roles('editingteacher');
-        assign_capability(
-            'moodle/course:viewhiddenuserfields',
-            CAP_PROHIBIT,
-            reset($teacherrole)->id,
-            \context_course::instance($course->id)
-        );
-
-        $this->assertSame(['idnumber'], column_helper::get_visible_identity_fields($context));
-    }
-
-    /**
-     * Custom profile fields follow their own "Who is this field visible to?" setting.
-     */
-    public function test_profile_fields_follow_their_visibility(): void {
-        global $CFG;
-        require_once($CFG->dirroot . '/user/profile/lib.php'); // For the PROFILE_VISIBLE_* constants.
-        $this->resetAfterTest();
-        $generator = $this->getDataGenerator();
-        $generator->create_custom_profile_field(['datatype' => 'text', 'shortname' => 'upi', 'name' => 'UPI',
-            'visible' => PROFILE_VISIBLE_ALL]);
-        $generator->create_custom_profile_field(['datatype' => 'text', 'shortname' => 'secret', 'name' => 'Secret',
-            'visible' => PROFILE_VISIBLE_NONE]);
-        set_config('identityfields', 'profile_field_upi,profile_field_secret', 'quiz_livequizmonitor');
-        [$context] = $this->setup_teacher();
-
-        $this->assertSame(['profile_field_upi'], column_helper::get_visible_identity_fields($context));
-    }
-
-    /**
-     * A profile field deleted after the settings were saved is ignored.
-     */
-    public function test_deleted_profile_field_is_ignored(): void {
-        $this->resetAfterTest();
-        set_config('identityfields', 'idnumber,profile_field_deleted', 'quiz_livequizmonitor');
-        [$context] = $this->setup_teacher();
-
-        $this->assertSame(['idnumber'], column_helper::get_visible_identity_fields($context));
-        $this->assertSame(['idnumber'], column_helper::get_visible_identity_fields(null));
-    }
-
-    /**
-     * Users can hide or show any of the chosen columns, except Status and Actions.
-     */
-    public function test_chosen_columns_can_be_hidden(): void {
-        $this->resetAfterTest();
-        set_config('identityfields', 'idnumber', 'quiz_livequizmonitor');
+        $CFG->showuseridentity = 'idnumber';
+        set_config('identitycolumns', 'idnumber', 'quiz_livequizmonitor');
         set_config('attemptcolumns', '', 'quiz_livequizmonitor');
         [, $teacher] = $this->setup_teacher();
 
         $this->assertSame(['student', 'idnumber'], column_helper::get_toggleable_column_ids());
 
-        // A column that is no longer chosen is dropped from the saved preference.
+        // A column that no longer appears is dropped from the saved preference.
         $saved = column_helper::set_hidden_columns(['idnumber', 'email', 'progress'], (int) $teacher->id);
         $this->assertSame(['idnumber'], $saved);
     }

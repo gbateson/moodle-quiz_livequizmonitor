@@ -112,8 +112,8 @@ $string['privacy:metadata:preference:hiddencolumns_desc'] = 'Ausgeblendete Spalt
 $string['progressanswered'] = '{$a->answered} von {$a->total} beantwortet';
 $string['settings:attemptcolumns'] = 'Anzuzeigende Versuchsdetails';
 $string['settings:attemptcolumns_desc'] = 'Die Spalten zum Versuch der Teilnehmenden, die im Live-Quiz-Monitor angezeigt werden.';
-$string['settings:identityfields'] = 'Anzuzeigende Teilnehmendendaten';
-$string['settings:identityfields_desc'] = 'Die Teilnehmendendaten, die im Live-Quiz-Monitor jeweils in einer eigenen Spalte nach dem Namen angezeigt werden. Sie werden auch bei der Suche nach Teilnehmenden berücksichtigt. Wie in anderen Moodle-Berichten sehen sie nur Personen, die Identitätsdaten sehen dürfen (moodle/site:viewuseridentity). Felder in „Nutzerfelder verbergen“ erfordern zusätzlich moodle/course:viewhiddenuserfields, und benutzerdefinierte Profilfelder folgen zusätzlich ihrer eigenen Sichtbarkeitseinstellung.';
+$string['settings:identitycolumns'] = 'Anzuzeigende Teilnehmendendaten';
+$string['settings:identitycolumns_desc'] = 'Die Teilnehmendendaten, die im Live-Quiz-Monitor jeweils in einer eigenen Spalte nach dem Namen angezeigt werden. Sie können sortiert und ausgeblendet werden, und Teilnehmende können über sie gesucht werden. Zur Auswahl stehen die Nutzer-ID und die Felder aus Moodles Einstellung <a href="{$a}">Nutzeridentität anzeigen</a>; weitere Felder können dort hinzugefügt werden. Wie in anderen Moodle-Berichten regeln die üblichen Moodle-Regeln, wer sie sehen darf.';
 $string['showpassword:label'] = 'Quiz-Passwort anzeigen';
 $string['showpassword:modaltitle'] = 'Quiz-Passwort';
 $string['sortby'] = 'Sortieren nach {$a}';

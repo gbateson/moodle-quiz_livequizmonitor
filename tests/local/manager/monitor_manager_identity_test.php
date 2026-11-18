@@ -21,7 +21,7 @@ use core_external\external_api;
 use quiz_livequizmonitor\external\get_monitor_state;
 
 /**
- * Tests for the student details (identity fields) in the monitor's rows.
+ * Tests for the identity fields (identity fields) in the monitor's rows.
  *
  * @package   quiz_livequizmonitor
  * @copyright 2026 SSYSTEMS
@@ -33,15 +33,18 @@ final class monitor_manager_identity_test extends advanced_testcase {
     /**
      * Create a quiz with three students, a UPI profile field, and a teacher.
      *
-     * The site admin has chosen to show user id, ID number, UPI and country.
+     * Moodle's "Show user identity" setting has ID number, UPI and country,
+     * and the monitor shows those and the user id.
      * Carol has no UPI.
      *
      * @return array [course, cm, quiz, teacher, students keyed by first name]
      */
     private function setup_quiz(): array {
+        global $CFG;
         $generator = $this->getDataGenerator();
-        $generator->create_custom_profile_field(['datatype' => 'text', 'shortname' => 'upi', 'name' => 'UPI']);
-        set_config('identityfields', 'userid,idnumber,profile_field_upi,country', 'quiz_livequizmonitor');
+        $generator->create_custom_profile_field(['datatype' => 'text', 'shortname' => 'upi', 'name' => 'UPI', 'param2' => 50]);
+        $CFG->showuseridentity = 'idnumber,profile_field_upi,country';
+        set_config('identitycolumns', 'userid,idnumber,profile_field_upi,country', 'quiz_livequizmonitor');
 
         $course = $generator->create_course();
         $quiz = $generator->create_module('quiz', ['course' => $course->id]);
@@ -82,9 +85,9 @@ final class monitor_manager_identity_test extends advanced_testcase {
     }
 
     /**
-     * Each row has the chosen student details, in column order.
+     * Each row has the chosen identity fields, in column order.
      */
-    public function test_rows_have_student_details(): void {
+    public function test_rows_have_identity_fields(): void {
         $this->resetAfterTest();
         $setup = $this->setup_quiz();
         $students = $setup[4];
@@ -98,29 +101,50 @@ final class monitor_manager_identity_test extends advanced_testcase {
             ['column' => 'country', 'value' => 'United Kingdom'],
         ];
         $this->assertSame($expected, $rows['Alice']->identity);
+        // Carol has no UPI, so her UPI value is empty.
         $this->assertSame('', $rows['Carol']->identity[2]['value']);
     }
 
     /**
-     * Searching for a student detail, such as a UPI, finds the student.
+     * Searching for a identity field, such as a UPI, finds the student.
      */
-    public function test_search_includes_student_details(): void {
+    public function test_search_includes_identity_fields(): void {
         $this->resetAfterTest();
         $setup = $this->setup_quiz();
 
         $rows = $this->get_rows($setup);
 
+        // The search text is the student's name followed by their identity field values,
+        // in lower case and separated by spaces, e.g. 'alice student 2 s002 alice01 united kingdom'.
         $this->assertStringContainsString('alice01', $rows['Alice']->searchtext);
         $this->assertStringNotContainsString('alice01', $rows['Bob']->searchtext);
     }
 
     /**
-     * Sorting by a student detail sorts by its value, with students without a value last.
+     * Searching can't find a student by a detail that isn't shown, even one the
+     * teacher could see elsewhere, such as their email address.
+     */
+    public function test_search_excludes_identity_fields_not_shown(): void {
+        $this->resetAfterTest();
+        $setup = $this->setup_quiz();
+
+        // Show only the ID number in the monitor.
+        set_config('identitycolumns', 'idnumber', 'quiz_livequizmonitor');
+
+        $rows = $this->get_rows($setup);
+
+        $this->assertStringContainsString('s002', $rows['Alice']->searchtext);
+        $this->assertStringNotContainsString('alice01', $rows['Alice']->searchtext);
+        $this->assertStringNotContainsString('@', $rows['Alice']->searchtext);
+    }
+
+    /**
+     * Sorting by a identity field sorts by its value, with students without a value last.
      *
      * When sorting descending, only the students with a value are checked: on main, students
      * without a value come first when descending, for every column (CTP-6786 changes that).
      */
-    public function test_sort_by_student_detail(): void {
+    public function test_sort_by_identity_field(): void {
         $this->resetAfterTest();
         $setup = $this->setup_quiz();
 
@@ -128,7 +152,9 @@ final class monitor_manager_identity_test extends advanced_testcase {
         $rows = $this->get_rows($setup, 'profile_field_upi', 'asc');
         $this->assertSame(['Alice', 'Bob', 'Carol'], array_keys($rows));
 
-        // Descending: BOB0001, then ALICE01.
+        // Descending: BOB0001, then ALICE01. Carol (no UPI) is left out of this check: on main,
+        // students without a value come first when sorting descending. CTP-6786 changes that to
+        // last, so once this branch is rebased onto it, Carol can be checked here too.
         $rows = $this->get_rows($setup, 'profile_field_upi', 'desc');
         $this->assertSame(['Bob', 'Alice'], array_values(array_diff(array_keys($rows), ['Carol'])));
 
@@ -138,9 +164,9 @@ final class monitor_manager_identity_test extends advanced_testcase {
     }
 
     /**
-     * Users who can't view user identity don't get the student details.
+     * Users who can't view user identity don't get the identity fields.
      */
-    public function test_no_student_details_without_viewuseridentity(): void {
+    public function test_no_identity_fields_without_viewuseridentity(): void {
         $this->resetAfterTest();
         $setup = $this->setup_quiz();
         [$course] = $setup;
@@ -160,9 +186,9 @@ final class monitor_manager_identity_test extends advanced_testcase {
     }
 
     /**
-     * The web service returns the student details, and can sort by a profile field.
+     * The web service returns the identity fields, and can sort by a profile field.
      */
-    public function test_web_service_returns_student_details(): void {
+    public function test_web_service_returns_identity_fields(): void {
         $this->resetAfterTest();
         $setup = $this->setup_quiz();
         [, $cm] = $setup;
@@ -175,6 +201,7 @@ final class monitor_manager_identity_test extends advanced_testcase {
         foreach ($result['students'] as $student) {
             $students[explode(' ', $student['fullname'])[0]] = $student;
         }
+        // Carol (no UPI) is left out of this check, as in test_sort_by_identity_field().
         $this->assertSame(['Bob', 'Alice'], array_values(array_diff(array_keys($students), ['Carol'])));
         $this->assertSame(['column' => 'profile_field_upi', 'value' => 'BOB0001'], $students['Bob']['identity'][2]);
     }

@@ -81,7 +81,9 @@ class monitor_report implements renderable, templatable {
         $canviewattempts = !empty($state->canviewattempts);
         $canviewlogs = !empty($state->canviewlogs);
         // The columns chosen in the site settings, and the student details this user may see.
-        $columnids = array_keys(column_helper::get_columns(\context_module::instance($state->cmid)));
+        // Worked out once here, and passed to the helpers below.
+        $columns = column_helper::get_columns(\context_module::instance($state->cmid));
+        $columnids = array_keys($columns);
         $showprogresscolumn = in_array('progress', $columnids, true);
         $showtimeremainingcolumn = in_array('timeremaining', $columnids, true);
 
@@ -114,7 +116,7 @@ class monitor_report implements renderable, templatable {
             $students[] = $student;
         }
 
-        $tableheaders = $this->export_table_headers();
+        $tableheaders = $this->export_table_headers($columns);
 
         return [
             'quizname' => $state->quizname,
@@ -156,7 +158,7 @@ class monitor_report implements renderable, templatable {
             'noteflaglabel' => get_string('notes:hasnoteflag', 'quiz_livequizmonitor'),
             'actionsmenulabel' => get_string('actions'),
             'tableheaders' => $tableheaders,
-            'columns' => $this->export_columns($state, $tableheaders),
+            'columns' => $this->export_columns($state, $tableheaders, $columns),
             'columnsjson' => json_encode($columnids),
             'hiddencolumnsjson' => json_encode(column_helper::get_hidden_columns()),
             'showactionscolumn' => true, // Always show Actions column.
@@ -171,11 +173,12 @@ class monitor_report implements renderable, templatable {
     /**
      * Build column header labels from the column registry.
      *
+     * @param array $columns Columns from column_helper::get_columns().
      * @return array<string, string> Column id => header label.
      */
-    protected function export_table_headers(): array {
+    protected function export_table_headers(array $columns): array {
         $headers = [];
-        foreach (column_helper::get_columns(\context_module::instance($this->state->cmid)) as $columnid => $column) {
+        foreach ($columns as $columnid => $column) {
             $headers[$columnid] = $column['label'];
         }
         return $headers;
@@ -191,13 +194,14 @@ class monitor_report implements renderable, templatable {
      *
      * @param stdClass $state Monitor state from monitor_manager.
      * @param array $tableheaders Column id maps to header label.
+     * @param array $columns Columns from column_helper::get_columns().
      * @return array List of column context entries, in registry order.
      */
-    protected function export_columns(stdClass $state, array $tableheaders): array {
+    protected function export_columns(stdClass $state, array $tableheaders, array $columns): array {
         // The registry already leaves out columns that are switched off in the site
         // settings, and student details that the current user may not see.
-        $columns = [];
-        foreach (column_helper::get_columns(\context_module::instance($state->cmid)) as $columnid => $column) {
+        $entries = [];
+        foreach ($columns as $columnid => $column) {
             $label = $tableheaders[$columnid] ?? $columnid;
             $locked = !empty($column['locked']);
             // Status is locked (always visible) but still sortable; actions is neither toggleable nor sortable.
@@ -241,9 +245,9 @@ class monitor_report implements renderable, templatable {
                 $entry['sortbylabel'] = $sortbylabel;
             }
 
-            $columns[] = $entry;
+            $entries[] = $entry;
         }
-        return $columns;
+        return $entries;
     }
 
     /**

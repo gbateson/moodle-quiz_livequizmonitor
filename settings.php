@@ -29,13 +29,14 @@ use quiz_livequizmonitor\local\column_helper;
 defined('MOODLE_INTERNAL') || die();
 
 if ($ADMIN->fulltree) {
-    // Student details, e.g. ID number, email and custom profile fields such as a student number.
+    // Student details, chosen from the user id and the fields in Moodle's "Show user identity" setting.
+    $url = new moodle_url('/admin/settings.php', ['section' => 'userpolicies'], 'admin-showuseridentity');
     $settings->add(new admin_setting_configmulticheckbox(
-        'quiz_livequizmonitor/' . column_helper::SETTING_IDENTITYFIELDS,
-        new lang_string('settings:identityfields', 'quiz_livequizmonitor'),
-        new lang_string('settings:identityfields_desc', 'quiz_livequizmonitor'),
-        array_fill_keys(column_helper::DEFAULT_IDENTITYFIELDS, 1),
-        fn() => column_helper::get_identity_field_choices()
+        'quiz_livequizmonitor/' . column_helper::SETTING_IDENTITYCOLUMNS,
+        new lang_string('settings:identitycolumns', 'quiz_livequizmonitor'),
+        new lang_string('settings:identitycolumns_desc', 'quiz_livequizmonitor', $url->out()),
+        array_fill_keys(column_helper::get_default_identity_columns(), 1),
+        fn() => column_helper::get_identity_column_choices()
     ));
 
     // Attempt details, e.g. progress and time left.

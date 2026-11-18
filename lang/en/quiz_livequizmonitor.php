@@ -112,8 +112,8 @@ $string['privacy:metadata:preference:hiddencolumns_desc'] = 'Hidden live monitor
 $string['progressanswered'] = '{$a->answered} of {$a->total} answered';
 $string['settings:attemptcolumns'] = 'Attempt details to show';
 $string['settings:attemptcolumns_desc'] = 'The columns about each student\'s attempt to show in the live quiz monitor.';
-$string['settings:identityfields'] = 'Student details to show';
-$string['settings:identityfields_desc'] = 'The student details to show in the live quiz monitor, each in its own column, after the student\'s name. They are also included when searching for a student. As in other Moodle reports, only users who can view user identity (moodle/site:viewuseridentity) see them. Fields listed in "Hide user fields" also need moodle/course:viewhiddenuserfields, and custom profile fields also follow their own "Who is this field visible to?" setting.';
+$string['settings:identitycolumns'] = 'Student details to show';
+$string['settings:identitycolumns_desc'] = 'The student details to show in the live quiz monitor, each in its own column after the student\'s name. They can be sorted and hidden, and students can be found by searching for them. The choices are the user ID and the fields in Moodle\'s <a href="{$a}">Show user identity</a> setting; to offer more, add them there. As in other Moodle reports, Moodle\'s usual rules decide who can see them.';
 $string['showpassword:label'] = 'Show quiz password';
 $string['showpassword:modaltitle'] = 'Quiz password';
 $string['sortby'] = 'Sort by {$a}';
