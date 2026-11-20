@@ -39,6 +39,26 @@ use Behat\Gherkin\Node\TableNode;
  */
 class behat_quiz_livequizmonitor extends behat_base {
     /**
+     * Named selectors for the monitor table, found by the label shown, e.g.
+     *   Then "UPI" "quiz_livequizmonitor > column" should exist
+     *   When I click on "UPI" "quiz_livequizmonitor > column sort"
+     *
+     * The label must match exactly, so "ID number" doesn't also match "User ID".
+     *
+     * @return behat_component_named_selector[]
+     */
+    public static function get_exact_named_selectors(): array {
+        $label = "span[contains(concat(' ', normalize-space(@class), ' '), ' livequizmonitor-th-label ')]"
+            . "[normalize-space(.) = %locator%]";
+        return [
+            // A column header.
+            new behat_component_named_selector('column', ["//th[@data-column][{$label}]"]),
+            // The sort control in a column header.
+            new behat_component_named_selector('column sort', ["//th[@data-column]/{$label}[@data-action = 'sort-column']"]),
+        ];
+    }
+
+    /**
      * Open the live monitor report for a quiz by activity name.
      *
      * @When /^I am on the live monitor report for "(?P<quizname>[^"]*)"$/

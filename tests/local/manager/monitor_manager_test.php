@@ -411,9 +411,9 @@ final class monitor_manager_test extends advanced_testcase {
     }
 
     /**
-     * Search haystack includes only fullname when hidden fields are not permitted.
+     * Without student details, the search text is just the student's name.
      */
-    public function test_build_searchtext_without_hidden_fields(): void {
+    public function test_build_searchtext_name_only(): void {
         $this->resetAfterTest();
         $user = $this->getDataGenerator()->create_user([
             'firstname' => 'Jane',
@@ -423,18 +423,15 @@ final class monitor_manager_test extends advanced_testcase {
             'idnumber' => 'S123',
         ]);
 
-        $haystack = monitor_manager::build_searchtext($user, false);
+        $haystack = monitor_manager::build_searchtext($user);
 
-        $this->assertStringContainsString('jane doe', $haystack);
-        $this->assertStringNotContainsString('jane@example.com', $haystack);
-        $this->assertStringNotContainsString('jdoe', $haystack);
-        $this->assertStringNotContainsString('s123', $haystack);
+        $this->assertSame('jane doe', $haystack);
     }
 
     /**
-     * Search haystack includes permitted identity fields when hidden fields are visible.
+     * The search text is the student's name and the student details shown, in lower case.
      */
-    public function test_build_searchtext_with_hidden_fields(): void {
+    public function test_build_searchtext_includes_shown_details(): void {
         $this->resetAfterTest();
         $user = $this->getDataGenerator()->create_user([
             'firstname' => 'Jane',
@@ -444,12 +441,13 @@ final class monitor_manager_test extends advanced_testcase {
             'idnumber' => 'S123',
         ]);
 
-        $haystack = monitor_manager::build_searchtext($user, true);
+        // Email and ID number are shown, but not the username.
+        $haystack = monitor_manager::build_searchtext($user, ['Jane@Example.com', 'S123']);
 
         $this->assertStringContainsString('jane doe', $haystack);
         $this->assertStringContainsString('jane@example.com', $haystack);
-        $this->assertStringContainsString('jdoe', $haystack);
         $this->assertStringContainsString('s123', $haystack);
+        $this->assertStringNotContainsString('jdoe', $haystack);
     }
 
     /**

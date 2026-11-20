@@ -57,7 +57,6 @@ const STATUS_SORT_RANK = {
 const SORT_FIELDS = {
     status: 'status',
     fullname: 'fullname',
-    email: 'email',
     progress: 'progresspercent',
     timeremaining: 'timeremaining',
     endtime: 'endtime',
@@ -143,7 +142,8 @@ class MonitorComponent extends BaseComponent {
         this.cmid = parseInt(descriptor.cmid ?? root.dataset.cmid ?? 0, 10);
         this.groupid = parseInt(descriptor.groupid ?? root.dataset.groupid ?? 0, 10);
         this.courseId = parseInt(descriptor.courseid ?? root.dataset.courseid ?? 1, 10);
-        this.showEmailColumn = root.dataset.showEmail === '1';
+        // Column ids chosen in the site settings, including the student details this user may see.
+        this.columnIds = JSON.parse(root.dataset.columns || '[]');
         this.showActionsColumn = root.dataset.showActions === '1';
         this.lastUpdatedPrefix = root.dataset.lastupdatedPrefix ?? '';
         this.canextend = root.dataset.canextend === '1';
@@ -875,7 +875,8 @@ class MonitorComponent extends BaseComponent {
 
         let sortcolumn = state?.meta?.sortcolumn ?? 'status';
         const sortdirection = state?.meta?.sortdirection === 'desc' ? 'desc' : 'asc';
-        if (!SORT_FIELDS[sortcolumn] && !EXTENSION_COLUMN_PATTERN.test(sortcolumn)) {
+        const identitycolumns = (rows[0]?.identity ?? []).map((item) => item.column);
+        if (!SORT_FIELDS[sortcolumn] && !identitycolumns.includes(sortcolumn) && !EXTENSION_COLUMN_PATTERN.test(sortcolumn)) {
             sortcolumn = 'status';
         }
 
@@ -910,7 +911,7 @@ class MonitorComponent extends BaseComponent {
      * Sort key of a student row for a column.
      *
      * @param {object} student Student state row
-     * @param {string} sortcolumn Built-in column or extension column id
+     * @param {string} sortcolumn Built-in column, student detail, or extension column id
      * @returns {{value: (number|string), numeric: boolean}|null} Null if the row has no value
      */
     getSortKey(student, sortcolumn) {
@@ -922,6 +923,12 @@ class MonitorComponent extends BaseComponent {
         if (SORT_FIELDS[sortcolumn]) {
             const value = student[SORT_FIELDS[sortcolumn]] ?? null;
             return value === null ? null : {value, numeric: typeof value === 'number'};
+        }
+
+        const item = (student.identity ?? []).find((i) => i.column === sortcolumn);
+        if (item) {
+            // An empty student detail sorts last, like a missing value.
+            return item.value === '' ? null : {value: item.value, numeric: false};
         }
 
         const cell = (student.extensioncells ?? []).find((c) => c.column === sortcolumn);
@@ -1055,10 +1062,6 @@ class MonitorComponent extends BaseComponent {
         }
         this.showActionsColumn = true;
         this.element.dataset.showActions = '1';
-        if (students[0].showemail) {
-            this.showEmailColumn = true;
-            this.element.dataset.showEmail = '1';
-        }
     }
 
     /**
@@ -1076,14 +1079,16 @@ class MonitorComponent extends BaseComponent {
             fullname: student.fullname,
             firstinitial: student.firstinitial,
             lastinitial: student.lastinitial,
-            email: student.email ?? '',
             statusclass: student.statusclass ?? '',
             statuslabel: student.statuslabel ?? '',
             progresspercent: student.progresspercent ?? 0,
             progressbarclass: student.progressbarclass ?? '',
             progresstext: student.progresstext ?? '',
             ...this.buildTimeContext(student),
-            showemailcolumn: this.showEmailColumn || !!student.showemail,
+            identity: student.identity ?? [],
+            showprogresscolumn: this.columnIds.includes('progress'),
+            showtimeremainingcolumn: this.columnIds.includes('timeremaining'),
+            showendtimecolumn: this.columnIds.includes('endtime'),
             showactionscolumn: this.showActionsColumn,
             canextend,
             extendactionenabled: canextend && this.isExtendActionEnabled(student),
@@ -1337,6 +1342,12 @@ class MonitorComponent extends BaseComponent {
         if (endtime) {
             endtime.textContent = student.endtimedisplay ?? '';
         }
+        (student.identity ?? []).forEach((item) => {
+            const content = row.querySelector(`[data-identity="${item.column}"] [data-colcontent]`);
+            if (content && content.textContent !== item.value) {
+                content.textContent = item.value;
+            }
+        });
         this.updateOverrideFlag(row, student);
         this.updateTimeOverrideFlag(row, student);
         this.updateNoteFlag(row, student);

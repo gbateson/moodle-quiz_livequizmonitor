@@ -36,7 +36,7 @@ final class column_helper_test extends advanced_testcase {
      * The status and actions columns are locked; everything else is not.
      */
     public function test_get_columns_locked_flags(): void {
-        $columns = column_helper::get_columns();
+        $columns = column_helper::get_chosen_columns();
 
         $this->assertTrue($columns['status']['locked']);
         $this->assertTrue($columns['actions']['locked']);

@@ -73,7 +73,6 @@ class monitor_manager {
     protected const SORT_FIELDS = [
         'status' => 'status',
         'fullname' => 'fullname',
-        'email' => 'email',
         'progress' => 'progresspercent',
         'timeremaining' => 'timeremaining',
         'endtime' => 'endtime',
@@ -172,15 +171,18 @@ class monitor_manager {
 
         // Resolve group for enrolment query (respect quiz report group mode).
         $groupid = supervision_scope_manager::resolve_group($groupid, $cm, $context);
+
+        // The student details (e.g. ID number, UPI) chosen in the site settings that this user may see.
+        $identityfields = column_helper::get_visible_identity_fields($context);
+
         if ($groupid === supervision_scope_manager::NO_GROUPS_ALLOWED) {
             $students = [];
         } else {
             // Get the student list, honouring the activity's access restrictions.
-            $students = self::get_allowed_students($cm, $context, $groupid);
+            $students = self::get_allowed_students($cm, $context, $groupid, 0, $identityfields);
         }
 
         $totalquestions = self::count_quiz_questions((int) $quiz->id);
-        $showemail = has_capability('moodle/course:viewhiddenuserfields', $context);
 
         // Load all non-preview attempts for this quiz, newest first per user scan.
         $attempts = $DB->get_records_select(
@@ -226,8 +228,8 @@ class monitor_manager {
                 $totalquestions,
                 $quiz,
                 $now,
-                $showemail,
-                $canextend
+                $canextend,
+                $identityfields
             );
         }
 
@@ -375,13 +377,15 @@ class monitor_manager {
      * @param context_module $context Module context.
      * @param int $groupid Active group id (0 = all groups).
      * @param int $userid Optional single user to test, 0 for the whole roster.
+     * @param string[] $identityfields Extra user fields to load, e.g. ['department', 'profile_field_upi'].
      * @return array User records keyed by user id.
      */
     public static function get_allowed_students(
         cm_info|stdClass $cm,
         context_module $context,
         int $groupid,
-        int $userid = 0
+        int $userid = 0,
+        array $identityfields = []
     ): array {
         global $DB;
 
@@ -389,11 +393,16 @@ class monitor_manager {
 
         [$enrolledsql, $params] = get_enrolled_sql($context, 'mod/quiz:attempt', $groupid, $onlyactive);
 
-        $userfields = fields::for_name()->including('id', 'email', 'username', 'idnumber');
-        $fieldsql = $userfields->get_sql('u', false, '', '', false);
+        // The name fields, and the student details to show. The user id is already loaded as 'id'.
+        // Custom profile fields add joins, with named params.
+        $identityfields = array_diff($identityfields, ['userid']);
+        $userfields = fields::for_name()->including('id', ...$identityfields);
+        $fieldsql = $userfields->get_sql('u', true, '', '', false);
+        $params = array_merge($params, $fieldsql->params);
         $sql = "SELECT {$fieldsql->selects}
                 FROM {user} u
                 JOIN ($enrolledsql) e ON e.id = u.id
+                {$fieldsql->joins}
                 WHERE u.deleted = 0";
 
         // Narrow to a single user when the caller only needs a membership test.
@@ -610,24 +619,48 @@ class monitor_manager {
     }
 
     /**
-     * Build lowercase search haystack from fields the viewer may search.
+     * Build the lowercase text that the search box looks in for a student.
+     *
+     * Only the student's name and the student details shown to the viewer are
+     * included, so searching can't find a student by a value the viewer can't see.
      *
      * @param stdClass $user User record.
-     * @param bool $showhidden Whether hidden identity fields may be included.
+     * @param string[] $identityvalues Values of the student details shown to the viewer, e.g. an ID number.
      * @return string
      */
-    public static function build_searchtext(stdClass $user, bool $showhidden): string {
+    public static function build_searchtext(stdClass $user, array $identityvalues = []): string {
         $parts = [\core_text::strtolower(fullname($user))];
 
-        if ($showhidden) {
-            foreach (['email', 'username', 'idnumber'] as $field) {
-                if (!empty($user->{$field})) {
-                    $parts[] = \core_text::strtolower($user->{$field});
-                }
+        foreach ($identityvalues as $value) {
+            if ($value !== '') {
+                $parts[] = \core_text::strtolower($value);
             }
         }
 
-        return trim(implode(' ', $parts));
+        return trim(implode(' ', array_unique($parts)));
+    }
+
+    /**
+     * Get the student details (identity fields) to show in a student's row.
+     *
+     * @param stdClass $user User record, from get_allowed_students().
+     * @param string[] $identityfields Field names, from column_helper::get_visible_identity_fields().
+     * @return array[] List of ['column' => field name, 'value' => text], in column order.
+     */
+    public static function get_identity_values(stdClass $user, array $identityfields): array {
+        $values = [];
+        foreach ($identityfields as $field) {
+            if ($field === 'userid') {
+                $value = (string) $user->id;
+            } else if ($field === 'country' && !empty($user->country)) {
+                // Show the country name, not its code.
+                $value = get_string_manager()->get_list_of_countries()[$user->country] ?? $user->country;
+            } else {
+                $value = (string) ($user->{$field} ?? '');
+            }
+            $values[] = ['column' => $field, 'value' => $value];
+        }
+        return $values;
     }
 
     /**
@@ -680,8 +713,8 @@ class monitor_manager {
      * @param int $totalquestions Total quiz questions.
      * @param stdClass $quiz Quiz record.
      * @param int $now Current timestamp.
-     * @param bool $showemail Whether email may be shown.
      * @param bool $canextend Whether the viewer may extend time.
+     * @param string[] $identityfields Student details to show, from column_helper::get_visible_identity_fields().
      * @return stdClass
      */
     protected static function build_student_row(
@@ -692,9 +725,10 @@ class monitor_manager {
         int $totalquestions,
         stdClass $quiz,
         int $now,
-        bool $showemail,
-        bool $canextend
+        bool $canextend,
+        array $identityfields = []
     ): stdClass {
+        $identity = self::get_identity_values($user, $identityfields);
         $status = self::map_status($attempt);
         $statuslabel = self::status_label($status);
 
@@ -779,8 +813,6 @@ class monitor_manager {
             'fullname' => fullname($user),
             'firstinitial' => \core_text::strtoupper(\core_text::substr($user->firstname, 0, 1)),
             'lastinitial' => \core_text::strtoupper(\core_text::substr($user->lastname, 0, 1)),
-            'email' => $showemail ? $user->email : '',
-            'showemail' => $showemail,
             'status' => $status,
             'statuslabel' => $statuslabel,
             'statusclass' => $presentation['badgeclass'],
@@ -792,7 +824,10 @@ class monitor_manager {
             'progresstext' => $progresstext,
             'timeremaining' => $timeremaining,
             'timeremainingdisplay' => $timeremainingdisplay,
-            'searchtext' => self::build_searchtext($user, $showemail),
+            'identity' => $identity,
+            // For other plugins (extend_rows hook): '' unless email is a student detail this user may see.
+            'email' => in_array('email', $identityfields, true) ? (string) ($user->email ?? '') : '',
+            'searchtext' => self::build_searchtext($user, array_column($identity, 'value')),
             'attemptendat' => $attemptendat,
             'endtime' => $endat,
             'endtimedisplay' => $endtimedisplay,
@@ -904,7 +939,7 @@ class monitor_manager {
      * See "amd/src/monitor.js".
      *
      * @param array $rows Student rows (by reference).
-     * @param string $sortcolumn Column to sort by: a built-in column or an extension column id.
+     * @param string $sortcolumn Column to sort by: a built-in column, a student detail, or an extension column id.
      * @param string $sortdirection Sort direction: asc or desc.
      */
     protected static function sort_student_rows(
@@ -912,9 +947,17 @@ class monitor_manager {
         string $sortcolumn = 'status',
         string $sortdirection = 'asc'
     ): void {
+        // Student details (e.g. 'email', 'profile_field_upi') sort by their value in the row's identity list.
+        // Every row has the same identity columns (with different values), so the first row
+        // is enough to tell whether the sort column is one of them.
+        $identitycolumns = $rows ? array_column(reset($rows)->identity ?? [], 'column') : [];
+
         // Sanity check on incoming values.
         $sortdirection = $sortdirection === 'desc' ? 'desc' : 'asc';
-        if (!isset(self::SORT_FIELDS[$sortcolumn]) && !column_helper::is_extension_column_id($sortcolumn)) {
+        $sortable = isset(self::SORT_FIELDS[$sortcolumn])
+            || in_array($sortcolumn, $identitycolumns, true)
+            || column_helper::is_extension_column_id($sortcolumn);
+        if (!$sortable) {
             $sortcolumn = 'status';
         }
 
@@ -952,7 +995,7 @@ class monitor_manager {
      * Sort key of a row for a column.
      *
      * @param stdClass $row Student row.
-     * @param string $sortcolumn Built-in column or extension column id.
+     * @param string $sortcolumn Built-in column, student detail, or extension column id.
      * @return array|null ['value' => int|float|string, 'numeric' => bool], or null if the row has no value.
      */
     protected static function get_sort_key(stdClass $row, string $sortcolumn): ?array {
@@ -964,6 +1007,13 @@ class monitor_manager {
         if (isset(self::SORT_FIELDS[$sortcolumn])) {
             $value = $row->{self::SORT_FIELDS[$sortcolumn]} ?? null;
             return $value === null ? null : ['value' => $value, 'numeric' => is_numeric($value)];
+        }
+
+        foreach ($row->identity ?? [] as $item) {
+            if ($item['column'] === $sortcolumn) {
+                // An empty student detail sorts last, like a missing value.
+                return $item['value'] === '' ? null : ['value' => $item['value'], 'numeric' => false];
+            }
         }
 
         foreach ($row->extensioncells ?? [] as $cell) {

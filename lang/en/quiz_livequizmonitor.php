@@ -114,6 +114,10 @@ $string['privacy:metadata:preference:hiddencolumns_desc'] = 'Hidden live monitor
 $string['privacy:metadata:preference:showncolumns'] = 'The live monitor table columns that are hidden by default and that you have chosen to show.';
 $string['privacy:metadata:preference:showncolumns_desc'] = 'Live monitor columns shown on request: {$a}';
 $string['progressanswered'] = '{$a->answered} of {$a->total} answered';
+$string['settings:attemptcolumns'] = 'Attempt details to show';
+$string['settings:attemptcolumns_desc'] = 'The columns about each student\'s attempt to show in the live quiz monitor.';
+$string['settings:identitycolumns'] = 'Student details to show';
+$string['settings:identitycolumns_desc'] = 'The student details to show in the live quiz monitor, each in its own column after the student\'s name. They can be sorted and hidden, and students can be found by searching for them. The choices are the user ID and the fields in Moodle\'s <a href="{$a}">Show user identity</a> setting; to offer more, add them there. As in other Moodle reports, Moodle\'s usual rules decide who can see them.';
 $string['showpassword:label'] = 'Show quiz password';
 $string['showpassword:modaltitle'] = 'Quiz password';
 $string['showsebquitpassword:label'] = 'Show SEB quit password';
@@ -135,4 +139,5 @@ $string['table:progress'] = 'Progress';
 $string['table:status'] = 'Status';
 $string['table:student'] = 'Student';
 $string['table:timeremaining'] = 'Time left';
+$string['table:userid'] = 'User ID';
 $string['timeup'] = 'Time up';
